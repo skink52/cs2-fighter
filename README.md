@@ -12,6 +12,11 @@ throws, perfect blocks and a custom Panorama HUD.
 Everything here is original work: the name, fighters, moves, stage art and rules. The genre conventions it uses
 (health bars, rounds, specials, combos) belong to nobody.
 
+![The fight camera with the HUD (offline render: flat shading, not CS2's lighting)](preview/hud_fight.png)
+
+More in `preview/`: the arena from several cameras, the HUD in each state (and with CS2's own HUD places
+marked), every fighter's moves at the moment of contact.
+
 ## How it fits together
 
 - **Animation is the source of truth.** Every move and state is a 3D clip built on the CS2 agent skeleton
