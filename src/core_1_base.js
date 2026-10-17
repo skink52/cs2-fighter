@@ -3,7 +3,7 @@
 //  Engine-agnostic. The CS2 script and the browser preview both run this same code.
 // =====================================================================================
 
-const PB_VERSION = "2.0.0";
+const PB_VERSION = "2.1.0";
 const SIM_HZ = 64;
 const DT = 1 / SIM_HZ;
 

@@ -68,3 +68,23 @@ hitboxes following. Send review images. Free-licence models allowed if agents do
   "MOUSE1+2 break". New clips burst, airdodgef, airdodgeb (196 clips). Tests added in test/mechanics.mjs.
 - NEXT: joint fixes from Zach's review attachment (see summary list), sheets, balance, deliver (script, xml, css,
   rig vmdl + anims zip), README controls + BREAK, project doc.
+
+## 18 Oct ~04:05: joint pass + v2.1.0 delivered
+- post.mjs ik2 is now a HINGE IK for leg/arm chains (HINGE_LOCAL from bind: legs = hips' left-right axis, arms = bind
+  elbow bend): knees/elbows can't bend backwards or sideways. Knee floor limit (KNEE_FLOOR 3.2: knee swings out).
+  PB_FREE_IK=1 env switches back to the old free IK for comparisons. armsOutOfBody() in Clip.finish pushes hands /
+  elbows / forearms out of head (r 7.2) and torso (r 7) and re-solves. limitAnkles in finish.
+- tools/anim/validate.mjs [fighter|all] [keys]: joint checker (knee/elbow hinge, thigh flex/abduction/twist vs hips,
+  airborne ankle range, limbs inside head/torso). ~120 low-severity notes remain, mostly deep crouch thigh flexion,
+  sweep leg external rotation, dancer high kicks (by design).
+- posture.mjs: completeSpec / sampleSpecs (every key has every channel; knee/elbow poles read off the IK's result).
+- posed_moves.mjs: sweep (new keys with explicit knee poles), lowSweepKeys for rootSweep/gearGrind/plieSweep (sit back
+  on the rear leg, lead leg drives out along the floor), fouetteKeys (rising kick then full spin in the air).
+- specials.mjs: risingSplinter fist on a forward diagonal; pistonStomp stands taller. mocap: roundhouse supportDx -11 +
+  turn {deg 22, from 8, to 15}; kickMid arm keep 0.7; every mocap move aims the head at [90,0,52].
+- Balance (600 s x3): L0 58/68/38/35, L1 54/57/45/43, L2 43/40/51/66 (T/B/P/M). Stats: TIMBER dmg 1.03, BRASS hp 115
+  dmg 1.15, PIROUETTE hp 108, MOTLEY hp 90 dmg 0.91. Hard CPU favours Motley (cartwheel/juggle); normal is fine.
+- DELIVERED v2.1.0 (all sha1-verified on the PC): scripts/puppet_brawl.js, panorama xml + css, rig/pb_rig.vmdl,
+  rig/pb_rig_anims_v3c.zip (Zach extracts into rig/, replaces anims), PUPPET_BRAWL_README.md (build steps, BREAK).
+  Review sheets sent: scratchpad/rv/r1_falls_break.png, r2_timber.png, r3_specials.png.
+- NEXT: Zach's in-game test of v2.1.0; his notes on the sheets.

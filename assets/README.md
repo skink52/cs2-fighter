@@ -36,18 +36,24 @@ Each fighter has a stance of their own (guard, weight, how they walk) and every 
 - **Counter hits:** hitting someone during the start-up of their own attack is a COUNTER: extra hitstop, a yellow callout and its own sound.
 - **Blocks are obvious:** a blocked hit flashes a blue shield ring with an arc on the guard, plays a guard sound (heavier for big hits), slides the defender back and bounces the attacker off. A perfect block (guard just before the hit) flashes white, gives 2 health back and leaves the attacker open.
 - **Bodies react:** struck fighters flash, hit reactions differ for high, mid, crouching and launched hits, landings and dashes kick up dust.
+- **Knockdowns:** a launched fighter is blown back with both feet off the ground, lands on their back, lies flat and gets up through a crouch. Nobody can stay in the air: after about 2.3 seconds a body is pulled down.
+- **BREAK meter:** the violet strip along the bottom of each health bar. It fills slowly over time and when you take damage. Press **MOUSE1 + MOUSE2 together**: with a full meter while you are being hit or juggled, you burst out of the combo (a shockwave shoves the attacker away and you recover); with half a meter in a jump, you air-dodge forward or back (once per jump). The status strip says BREAK READY when it is full.
 - **The camera** follows the fight, rises with jumps and launches so heads stay in the picture, kicks on hits and pulls in on a K.O.
 
 ## Building this version (command line)
 
-New or changed since the last build: the map, the script, the HUD, the sound events, the rig (`pb_rig.vmdl` and its 368 clips in `anims/`) and these new models with their materials in `materials/puppet_brawl/props/`: `pb_nobori_ningyo`, `pb_nobori_hissho`, `pb_nobori_oiri`, `pb_nobori_yomatsuri`, `pb_vending_red`, `pb_vending_white`, `pb_vending_blue`, `pb_sign_izakaya`, `pb_sign_yakitori`.
+This update (v2.1.0) changes the script, the HUD and the rig's animations (pb_rig.vmdl now lists 196 clips, each with a mirrored twin, in `anims/`).
 
-1. Close CS2 and Hammer. Put `mg_cs2_fighter` in `C:\source1\cs2port\build_queue.txt` and run `run_build.bat`. It compiles the models, materials, rig and sounds first, then builds the map.
-2. Start CS2 with Workshop Tools and run `map mg_cs2_fighter`. The script and the HUD compile when the map loads. The console should print `[puppet_brawl] v2.0.0 ready: stage … 4 pads, 4 watch spots, HUD on, 18 sounds`. If it says v1.0.0, the old script is still running.
-3. Walk down to the glowing pads behind the barrier, stand on one and press **E**.
-4. For a solo test: `sv_cheats 1` then `pb_cpu_match` to watch two CPUs fight. `pb_stop` (or the STOP CPUs button) ends it. Or press **ADD CPU**, then **START**.
+1. Close CS2 and Hammer. Extract `pb_rig_anims_v3c.zip` into `models/puppet_brawl/rig/` and let it replace the files there (it holds `anims/*.smd`). Older `pb_rig_anims_v3a.zip` / `v3b.zip` are no longer needed.
+2. Put `mg_cs2_fighter` in `C:\source1\cs2port\build_queue.txt` and run `run_build.bat` (it recompiles `pb_rig.vmdl`). Or compile it on its own from the CS2 folder: `game\bin\win64\resourcecompiler.exe -i content\csgo_addons\mg_cs2_fighter\models\puppet_brawl\rig\pb_rig.vmdl`
+3. Compile the script and the HUD from the CS2 folder (Workshop Tools does not always pick them up on its own):
+   - `game\bin\win64\resourcecompiler.exe -f -i content\csgo_addons\mg_cs2_fighter\scripts\puppet_brawl.js`
+   - `game\bin\win64\resourcecompiler.exe -f -i content\csgo_addons\mg_cs2_fighter\panorama\layout\custom_game\puppet_brawl.xml`
+   - `game\bin\win64\resourcecompiler.exe -f -i content\csgo_addons\mg_cs2_fighter\panorama\styles\custom_game\puppet_brawl.css`
+4. Start CS2 with Workshop Tools and run `map mg_cs2_fighter`. The console should print `[puppet_brawl] v2.1.0 ready: …`. If it shows an older version, the old script is still running (repeat step 3).
+5. Walk down to the glowing pads behind the barrier, stand on one and press **E**. For a solo test: `sv_cheats 1` then `pb_cpu_match` to watch two CPUs fight; `pb_stop` ends it.
 
-The map from before this version is kept as `maps/mg_cs2_fighter_pre_polish.vmap`. The files in `models/puppet_brawl/rig/anims/` whose names don't start with `brass_`, `motley_`, `pirouette_` or `timber_` are the old clips; nothing uses them any more, so they can be deleted.
+The map from before the polish pass is kept as `maps/mg_cs2_fighter_pre_polish.vmap`. The files in `models/puppet_brawl/rig/anims/` whose names don't start with `brass_`, `motley_`, `pirouette_` or `timber_` are old clips; nothing uses them, so they can be deleted.
 
 ## Controls
 
@@ -63,6 +69,7 @@ The map from before this version is kept as `maps/mg_cs2_fighter_pre_polish.vmap
 | Combos | P,P = jab into the 1-2 finisher. P,P,K = on into the kick finisher. P,K = jab into a mix-up ender (low or overhead). K,K = snap kick into the kick finisher |
 | Special | **R**. Toward+R and down+R give different specials. Motions also work, e.g. down, forward, punch |
 | Throw | **F** up close. Tap F or punch right after being grabbed to break it |
+| BREAK | **MOUSE1 + MOUSE2** together. Full meter while being hit = combo break; half meter in a jump = air dodge (toward or away) |
 | Dash / backdash | Double-tap toward or away |
 | Tag (tag team) | **SHIFT+R** while you're on stage |
 | Leave | Hold **E** |
@@ -82,7 +89,7 @@ The map from before this version is kept as `maps/mg_cs2_fighter_pre_polish.vmap
 
 ## The HUD
 
-- Health bars across the top with a white damage chip that drains after a beat, segment ticks and a low-health throb. Your own bar has a gold frame and a YOU tag. Name plates sit under the bars with round-win diamonds at the inner ends.
+- Health bars across the top with a white damage chip that drains after a beat, segment ticks and a low-health throb. The violet strip along the bottom of each bar is the BREAK meter (notch at half, glows when full). Your own bar has a gold frame and a YOU tag. Name plates sit under the bars with round-win diamonds at the inner ends.
 - The clock hangs under CS2's own team counter, with the round number and who's next.
 - Combo callouts under each bar: COUNTER (yellow), PERFECT BLOCK (cyan) and finisher names over a big hit count and the combo's damage.
 - The announcer (ROUND 1, FIGHT!, K.O., ... WINS) slams in mid-screen.
@@ -114,14 +121,13 @@ Game rules sit in the same block: `ROUND_TIME`, `ROUNDS_TO_WIN`, `CPU_LEVEL`, `B
 
 ## What to check in this build
 
-- [ ] Fighters move with the new animations and **blend** from one move into the next (no snapping).
+- [ ] Knocked-down fighters land on their back (never floating with one foot on the floor), lie flat, and get up. Nobody hangs in the air or slides away in the fall pose.
+- [ ] The BREAK strip fills under each health bar; MOUSE1 + MOUSE2 while being comboed with a full strip bursts out (violet shockwave, attacker shoved off); half a strip in a jump air-dodges.
+- [ ] Knees and elbows only bend the natural way; kicks keep the foot in line with the shin; no arm passes through the head or body.
+- [ ] Sweep: drops low, both hands on the floor, the rear leg swings round flat along the floor past the front foot.
+- [ ] Fighters move with the animations and **blend** from one move into the next (no snapping).
 - [ ] Hits feel heavy (a freeze, a camera kick, sparks), blocks flash a blue ring and slide the defender back, COUNTER shows.
-- [ ] The camera sits lower and rises when someone jumps or is launched.
 - [ ] The HUD: bars across the top, the clock under CS2's team counter, callouts under the bars, nothing hidden under CS2's own HUD.
-- [ ] Lighting: the fighters are the best-lit thing on screen; signs, lanterns and drinks machines glow; the burning drum flickers.
-- [ ] The banners, drinks machines and the two side-street shop signs show (not pink checkerboard).
-- [ ] Sounds: light and heavy hits, COUNTER, blocks, landings and dashes.
-- [ ] The stage text under the torii (ROUND 1, FIGHT!, K.O., ... WINS) is readable from the bleachers.
 
 ## Troubleshooting
 
@@ -135,3 +141,5 @@ Game rules sit in the same block: `ROUND_TIME`, `ROUNDS_TO_WIN`, `CPU_LEVEL`, `B
 | No HUD | `pb_hud` must point to `panorama/layout/custom_game/puppet_brawl.vxml` |
 | Some sounds silent | The `pb.*` events are missing from `soundevents_addon.vsndevts`, or a `pb_snd_*` entity is missing |
 | Script not running | The point_script `pb_script` must use `scripts/puppet_brawl.vjs`. Check the console for a JavaScript error line |
+
+> **About the code:** the game script, the HUD and the generated models and animations in this addon were written by an AI coding agent (Claude, by Anthropic), directed and tested by skink52.
