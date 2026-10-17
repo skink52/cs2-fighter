@@ -6,6 +6,7 @@ import { q, v3, clamp, smoother } from "./m3.mjs";
 import { SK, IDX, N, fk, toLocals, mirrorPose } from "./rig.mjs";
 import { mocapPose, clonePose, hermiteMap, monotoneSlopes } from "./clip.mjs";
 import { ik2, LEG, ARM } from "./post.mjs";
+import { lookAt } from "./pose.mjs";
 
 // world tip of a limb (matches bake.mjs): fists at the knuckles, feet between ankle and toe
 export function tipOf(W, tip) {
@@ -74,8 +75,11 @@ export function displace(poses, startPose, endPose, { inEnd, outStart, keep = {}
   const n = poses.length;
   const L = poses.map(toLocals);
   const S0 = toLocals(startPose), S1 = toLocals(endPose);
-  const d0 = S0.map((s, i) => ({ q: q.norm(q.mul(s.q, q.conj(L[0][i].q))), p: v3.sub(s.p, L[0][i].p) }));
-  const d1 = S1.map((s, i) => ({ q: q.norm(q.mul(s.q, q.conj(L[n - 1][i].q))), p: v3.sub(s.p, L[n - 1][i].p) }));
+  // offsets as the short way round (a quaternion and its negative are the same turn, but
+  // slerping from identity toward one with w < 0 swings the bone through more than 180deg)
+  const short = (r) => (r[3] < 0 ? r.map((x) => -x) : r);
+  const d0 = S0.map((s, i) => ({ q: short(q.norm(q.mul(s.q, q.conj(L[0][i].q)))), p: v3.sub(s.p, L[0][i].p) }));
+  const d1 = S1.map((s, i) => ({ q: short(q.norm(q.mul(s.q, q.conj(L[n - 1][i].q)))), p: v3.sub(s.p, L[n - 1][i].p) }));
   const ID = [0, 0, 0, 1];
   return L.map((Lf, f) => {
     const a = f >= inEnd ? 0 : 1 - smoother(f / inEnd);
@@ -118,10 +122,10 @@ export function steerTip(P, tip, { from, to, ease = 3, x = null, z = null, y = n
     const t = tipOf(W, tip);
     const d = [x === null ? 0 : (x - t[0]) * w, y === null ? 0 : (y - t[1]) * w, z === null ? 0 : (z - t[2]) * w];
     const end = W[IDX[ch[2]]];
-    const rot = end.q.slice();
+    // the foot / fist keeps its set on the shin / forearm (a straight wrist, an ankle that follows)
+    const rel = q.mul(q.conj(W[IDX[ch[1]]].q), end.q);
     ik2(W, ...ch, v3.add(end.p, d), { keepEnd: false });
-    // keep the foot / fist pointing the same way in the world
-    W[IDX[ch[2]]] = { q: rot, p: W[IDX[ch[2]]].p };
+    W[IDX[ch[2]]] = { q: q.norm(q.mul(W[IDX[ch[1]]].q, rel)), p: W[IDX[ch[2]]].p };
     refreshKids(W, IDX[ch[2]]);
   }
 }
@@ -164,11 +168,37 @@ export function mocapPoses(spec, { start, end, k = 1, n }) {
   const inEnd = Math.round((spec.inEnd ?? ak[0]) * k);
   const outStart = Math.round((spec.outStart ?? ak[0] + 4) * k);
   P = displace(P, start, end, { inEnd, outStart, keep: spec.keep || {} });
+  // turn: the whole body pivots on the support foot (more hip turn into a roundhouse)
+  if (spec.turn) {
+    const T = spec.turn;
+    const a0 = Math.round(T.from * k), a1 = Math.round(T.to * k), e = Math.round((T.ease ?? 4) * k);
+    P = P.map((W, f) => {
+      const w = f < a0 - e || f > a1 + e ? 0 : f < a0 ? smoother((f - (a0 - e)) / Math.max(1, e)) : f > a1 ? 1 - smoother((f - a1) / Math.max(1, e)) : 1;
+      if (w <= 0) return W;
+      const c = W[IDX["ankle_" + sup]].p;
+      const r = q.axisAngle([0, 0, 1], T.deg * w * Math.PI / 180);
+      return W.map((t) => ({ q: q.mul(r, t.q), p: v3.add(c, q.rotate(r, v3.sub(t.p, c))) }));
+    });
+  }
   if (spec.lock) {
     const sa = start[IDX["ankle_" + sup]];
     P = P.map((W) => lockFoot(W, sup, sa.p, null, 1));
   }
   for (const st of spec.steer || []) steerTip(P, spec.tip, { ...st, from: Math.round(st.from * k), to: Math.round(st.to * k) });
   P = P.map((W) => floorFeet(W));
+  // eyes on the opponent through the move (the capture looks wherever the performer did)
+  if (spec.look !== false) {
+    const tgt = spec.look || [90, 0, 52];
+    P = P.map((W, f) => {
+      const w = Math.min(1, Math.min(f, n - 1 - f) / Math.max(1, 3 * k));
+      if (w <= 0) return W;
+      const before = W.map((t) => ({ q: t.q.slice(), p: t.p.slice() }));
+      lookAt(W, tgt, { neckShare: 0.45 });
+      if (w >= 1) return W;
+      for (const n2 of ["neck_0", "head_0"]) { const i = IDX[n2]; W[i] = { q: q.slerp(before[i].q, W[i].q, w), p: W[i].p }; }
+      refreshKids(W, IDX.head_0);
+      return W;
+    });
+  }
   return { poses: P, aimIndex };
 }

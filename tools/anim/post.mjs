@@ -83,7 +83,91 @@ export function curlFingers(W, side, fist = 1, { thumb = null } = {}) {
 // Moves the end of a chain (e.g. ankle) to `target`. The bend keeps its current plane unless a
 // `pole` point is given. Descendants keep their local transforms; `keepEnd` keeps the end bone's
 // world rotation (feet stay flat, fists keep their angle).
-export function ik2(W, upper, middle, end, target, { pole = null, keepEnd = true, soft = 0.995 } = {}) {
+// ---------------------------------------------------------------- hinge IK
+// Knees and elbows are hinges: the lower bone only turns about one axis of the upper bone. The
+// axis comes from the bind pose (arms: the bind's slight elbow bend; legs: the hips' left-right
+// axis), stored in the upper bone's own frame. The IK places the middle joint (toward the pole, or
+// keeping the current bend direction), turns the upper bone so its hinge axis is square to the
+// limb's plane, then bends the lower bone about that axis only, so the skin folds the way the
+// joint does, never sideways or backwards.
+export const HINGE_LOCAL = {};
+const KNEE_FLOOR = 3.2;   // knee joint height when kneeling on it
+const BONE_AXIS = {};
+function initHinge(upper, middle, end, worldAxis) {
+  const A = IDX[upper], B = IDX[middle], C = IDX[end];
+  const u = v3.norm(v3.sub(BIND[B].p, BIND[A].p)), l = v3.norm(v3.sub(BIND[C].p, BIND[B].p));
+  let n = worldAxis ? v3.perp(worldAxis, u) : v3.cross(u, l);
+  n = v3.norm(n);
+  HINGE_LOCAL[upper] = q.rotate(q.conj(BIND[A].q), n);
+  BONE_AXIS[upper] = q.rotate(q.conj(BIND[A].q), u);
+  BONE_AXIS[middle] = q.rotate(q.conj(BIND[B].q), l);
+}
+for (const s of ["L", "R"]) {
+  initHinge(`leg_upper_${s}`, `leg_lower_${s}`, `ankle_${s}`, [0, 1, 0]);
+  initHinge(`arm_upper_${s}`, `arm_lower_${s}`, `hand_${s}`, null);
+}
+function basis(f, u) {
+  const x = v3.norm(f), z = v3.norm(v3.cross(x, u)), y = v3.cross(z, x);
+  return q.fromBasis(x, y, z);
+}
+export function ik2(W, upper, middle, end, target, opts = {}) {
+  if (HINGE_LOCAL[upper] && !process.env.PB_FREE_IK) return ik2Hinge(W, upper, middle, end, target, opts);
+  return ik2Free(W, upper, middle, end, target, opts);
+}
+function ik2Hinge(W, upper, middle, end, target, { pole = null, keepEnd = true, soft = 0.995 } = {}) {
+  const A = IDX[upper], B = IDX[middle], C = IDX[end];
+  const endRot = W[C].q;
+  const a = W[A].p;
+  const l1 = v3.dist(W[A].p, W[B].p), l2 = v3.dist(W[B].p, W[C].p);
+  const toT = v3.sub(target, a);
+  const tl = v3.len(toT);
+  const dist = clamp(tl, Math.abs(l1 - l2) + 1e-3, (l1 + l2) * soft);
+  const axis = tl > 1e-6 ? v3.mul(toT, 1 / tl) : v3.norm(v3.sub(W[C].p, a));
+  // which way the middle joint goes (perpendicular to the limb axis)
+  let pv = pole ? v3.perp(v3.sub(pole, a), axis) : [0, 0, 0];
+  if (v3.len(pv) < 1e-3) pv = v3.perp(v3.sub(W[B].p, a), axis);
+  if (v3.len(pv) < 0.05 * l1) {
+    // straight limb and no pole: the side the hinge already bends toward
+    const H = q.rotate(W[A].q, HINGE_LOCAL[upper]);
+    pv = v3.cross(axis, H);
+  }
+  pv = v3.norm(pv);
+  const cosA = clamp((l1 * l1 + dist * dist - l2 * l2) / (2 * l1 * dist), -1, 1);
+  const sinA = Math.sqrt(1 - cosA * cosA);
+  // a knee never goes through the floor: turn it about the limb axis (out to the side) until clear
+  if (upper.startsWith("leg_") && sinA > 0.05) {
+    const kz = (v) => a[2] + axis[2] * l1 * cosA + v[2] * l1 * sinA;
+    if (kz(pv) < KNEE_FLOOR) {
+      const side = v3.cross(axis, pv);
+      let best = null;
+      for (let d = 2; d <= 180 && !best; d += 2) {
+        for (const sg of [1, -1]) {
+          const t = sg * d * Math.PI / 180;
+          const v = v3.add(v3.mul(pv, Math.cos(t)), v3.mul(side, Math.sin(t)));
+          if (kz(v) >= KNEE_FLOOR) { best = v; break; }
+        }
+      }
+      if (best) pv = v3.norm(best);
+    }
+  }
+  const knee = v3.add(a, v3.add(v3.mul(axis, l1 * cosA), v3.mul(pv, l1 * sinA)));
+  const tip = v3.add(a, v3.mul(axis, dist));
+  const d1 = v3.norm(v3.sub(knee, a)), d2 = v3.norm(v3.sub(tip, knee));
+  const n = v3.norm(v3.cross(pv, axis));
+  // upper bone: bone axis along d1, hinge axis along n
+  const Qu = q.mul(basis(d1, n), q.conj(basis(BONE_AXIS[upper], HINGE_LOCAL[upper])));
+  setWorldRot(W, A, Qu);
+  // lower bone: its bind relation to the upper bone, then bent about the hinge
+  const rel0 = q.mul(q.conj(BIND[A].q), BIND[B].q);
+  let Ql = q.mul(Qu, rel0);
+  const now = q.rotate(Ql, BONE_AXIS[middle]);
+  const ang = Math.atan2(v3.dot(v3.cross(now, d2), n), v3.dot(now, d2));
+  Ql = q.mul(q.axisAngle(n, ang), Ql);
+  setWorldRot(W, B, Ql);
+  if (keepEnd) setWorldRot(W, C, endRot);
+  return dist - tl;
+}
+function ik2Free(W, upper, middle, end, target, { pole = null, keepEnd = true, soft = 0.995 } = {}) {
   const A = IDX[upper], B = IDX[middle], C = IDX[end];
   const endRot = W[C].q;
   const a = W[A].p, b = W[B].p, c = W[C].p;
@@ -127,3 +211,45 @@ export function ik2(W, upper, middle, end, target, { pole = null, keepEnd = true
 
 export const LEG = { L: ["leg_upper_L", "leg_lower_L", "ankle_L"], R: ["leg_upper_R", "leg_lower_R", "ankle_R"] };
 export const ARM = { L: ["arm_upper_L", "arm_lower_L", "hand_L"], R: ["arm_upper_R", "arm_lower_R", "hand_R"] };
+
+// ---------------------------------------------------------------- arms out of the body
+// Hands, elbows and forearms that end up inside the head or the torso are pushed back out to
+// the surface (plus a margin) and the arm is re-solved with the elbow kept on its side; the hand
+// keeps its set on the forearm.
+const HEAD_R = 7.2, TORSO_R = 7.0;
+function closestOnSeg(p, a, b) {
+  const ab = v3.sub(b, a), t = clamp(v3.dot(v3.sub(p, a), ab) / Math.max(1e-6, v3.dot(ab, ab)), 0, 1);
+  return v3.add(a, v3.mul(ab, t));
+}
+function pushOut(p, W) {
+  // head sphere and torso capsule; returns the corrected point or null when clear
+  const hc = v3.add(W[IDX.head_0].p, q.rotate(W[IDX.head_0].q, [3.5, 0, 0]));
+  let out = null, cur = p;
+  for (let it = 0; it < 2; it++) {
+    const dh = v3.sub(cur, hc), lh = v3.len(dh);
+    if (lh < HEAD_R) { cur = v3.add(hc, v3.mul(lh > 1e-3 ? v3.norm(dh) : [0, -1, 0], HEAD_R)); out = cur; }
+    const c = closestOnSeg(cur, W[IDX.spine_1].p, W[IDX.spine_3].p);
+    const dt = v3.sub(cur, c), lt = v3.len(dt);
+    if (lt < TORSO_R) { cur = v3.add(c, v3.mul(lt > 1e-3 ? v3.norm(dt) : [1, 0, 0], TORSO_R)); out = cur; }
+  }
+  return out;
+}
+export function armsOutOfBody(W) {
+  for (const s of ["L", "R"]) {
+    const [ua, la, ha] = ARM[s].map((n) => IDX[n]);
+    for (let pass = 0; pass < 3; pass++) {
+      const hand = W[ha].p, elbow = W[la].p;
+      const mid = v3.mul(v3.add(hand, elbow), 0.5);
+      const nh = pushOut(hand, W), ne = pushOut(elbow, W), nm = pushOut(mid, W);
+      if (!nh && !ne && !nm) break;
+      let target = nh || hand;
+      if (nm && !nh) target = v3.add(hand, v3.sub(nm, mid));
+      if (ne && !nh) target = v3.add(target, v3.mul(v3.sub(ne, elbow), 0.8));
+      const pole = v3.add(ne || elbow, v3.mul(v3.sub(ne || elbow, W[ua].p), 0.5));
+      const rel = q.mul(q.conj(W[la].q), W[ha].q);
+      ik2(W, ...ARM[s], target, { pole, keepEnd: false });
+      setWorldRot(W, ha, q.mul(W[la].q, rel));
+    }
+  }
+  return W;
+}

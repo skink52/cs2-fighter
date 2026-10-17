@@ -8,13 +8,14 @@ import { mocapPoses } from "./mocap_move.mjs";
 const SHARED = {
   // lead-leg snap kick: an in-place front kick; the rear foot skips up under the hips and back
   kickMid: { take: "144_09", tip: "fT", support: "R", place: "pelvis", pelvisDx: -5,
-    keys: [[0, 1384], [4, 1414], [7, 1436], [10, 1452], [25, 1530]], aim: 1436, keep: { armL: 0.45, armR: 0.45 }, steer: [{ from: 7, to: 10, z: 38, ease: 4 }] },
+    keys: [[0, 1384], [4, 1414], [7, 1436], [10, 1452], [25, 1530]], aim: 1436, keep: { armL: 0.7, armR: 0.7 }, steer: [{ from: 7, to: 10, z: 38, ease: 4 }] },
   // lead-leg side kick (the game slides the fighter forward through it)
   longKick: { take: "135_11", mirror: true, tip: "fT", support: "R", place: "pelvis", pelvisDx: -8,
     keys: [[0, 300], [6, 326], [10, 348], [13, 356], [30, 440]], aim: 348, keep: { armL: 0.2, armR: 0.35 }, steer: [{ from: 9, to: 13, z: 41, x: 38, ease: 5 }] },
   // rear-leg high kick, turning over on the planted lead foot
-  roundhouse: { take: "144_05", tip: "bT", support: "L", place: "support", lock: true, supportDx: -7,
-    keys: [[0, 736], [6, 774], [11, 804], [15, 816], [36, 896]], aim: 804, keep: { armL: 0.3, armR: 0.3 } },
+  roundhouse: { take: "144_05", tip: "bT", support: "L", place: "support", lock: true, supportDx: -11,
+    keys: [[0, 736], [6, 774], [11, 804], [15, 816], [36, 896]], aim: 804, keep: { armL: 0.4, armR: 0.4 },
+    turn: { deg: 22, from: 8, to: 15, ease: 6 } },
 };
 const PER = {
   timber: {

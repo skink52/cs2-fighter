@@ -7,7 +7,7 @@ import { SK, IDX, N, fk, toLocals, mirrorPose, setWorldRot } from "./rig.mjs";
 import { loadBVH } from "./bvh.mjs";
 import { makeRetargeter } from "./retarget.mjs";
 import { normalisePoses, gazeDir, chestDir } from "./gallery.mjs";
-import { ik2, LEG, ARM, spreadTwist } from "./post.mjs";
+import { ik2, LEG, ARM, spreadTwist, armsOutOfBody } from "./post.mjs";
 import { shapeHand } from "./hands.mjs";
 
 export const FPS = 64;
@@ -178,6 +178,7 @@ export class Clip {
     this.poses = this.poses.map((W, f) => {
       const fist = typeof this.fist === "function" ? this.fist(f, this) : this.fist;
       for (const s of ["L", "R"]) shapeHand(W, s, handShape(fist[s]));
+      armsOutOfBody(W);
       spreadTwist(W);
       limitAnkles(W);
       return W;

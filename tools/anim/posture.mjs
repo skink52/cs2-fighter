@@ -127,3 +127,35 @@ export function sampleKeys(keys, n) {
   return frames.map(unflat);
 }
 export const cloneSpec = (s) => JSON.parse(JSON.stringify(s));
+
+// A key with every channel present, so curves never hold a stale value between keys: missing
+// knee / elbow poles are read off the pose the spec builds (the IK's own choice), feet without
+// `rel` get a marker that sampleSpecs removes again.
+const NO_REL = -999;
+export function completeSpec(spec) {
+  const o = cloneSpec(spec);
+  o.pelvis = { p: o.pelvis.p, yaw: o.pelvis.yaw || 0, pitch: o.pelvis.pitch || 0, roll: o.pelvis.roll || 0, spin: o.pelvis.spin || 0 };
+  o.chest = { yaw: 0, pitch: 0, side: 0, ...(o.chest || {}) };
+  o.headRoll = o.headRoll || 0;
+  const W = posture(spec);
+  const pole = (a, b, c) => {
+    const A = W[IDX[a]].p, B = W[IDX[b]].p, C = W[IDX[c]].p;
+    let bulge = v3.sub(B, v3.mul(v3.add(A, C), 0.5));
+    if (v3.len(bulge) < 0.3) bulge = [1, 0, 0];
+    return v3.add(B, v3.mul(v3.norm(bulge), 25));
+  };
+  for (const s of ["L", "R"]) {
+    const f = o.feet[s];
+    o.feet[s] = { p: f.p, z: f.z ?? null, yaw: f.yaw || 0, heel: f.heel || 0, pitch: f.pitch ?? -(f.heel || 0), roll: f.roll || 0, rel: f.rel ?? NO_REL,
+      knee: f.knee || pole("leg_upper_" + s, "leg_lower_" + s, "ankle_" + s) };
+    if (o.feet[s].z === null) o.feet[s].z = W[IDX["ankle_" + s]].p[2];
+    const h = o.hands[s];
+    o.hands[s] = { p: h.p, elbow: h.elbow || pole("arm_upper_" + s, "arm_lower_" + s, "hand_" + s), palm: h.palm || null, bend: h.bend || 0, side: h.side || 0 };
+  }
+  return o;
+}
+export function sampleSpecs(keys, n) {
+  const specs = sampleKeys(keys.map(([f, s]) => [f, completeSpec(s)]), n);
+  for (const sp of specs) for (const s of ["L", "R"]) if (sp.feet[s].rel < NO_REL / 2) delete sp.feet[s].rel;
+  return specs;
+}

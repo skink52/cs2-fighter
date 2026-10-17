@@ -58,17 +58,18 @@ export const SPECIAL_ANIMS = {
   // the body stretched tall; he falls with the arm still up, knees tucked.
   risingSplinter: (c) => {
     const k = FUK(c);
-    const top = { lean: -34, twist: 26, hipYaw: 18, shR: 16, look: c.pre([50, 0, 90]), L: { d: [0, 0, 6] } };
+    // the fist drives up and forward on a diagonal (a rising uppercut), not straight overhead
+    const top = { lean: -18, twist: 26, hipYaw: 18, shR: 14, look: c.pre([60, 0, 84]), L: { d: [2, 0, 4] } };
     return {
       base: "crouch",
-      target: (hi, f) => (f < 6 ? [12 * k, (94 + (f - 3) * 4) * k] : [10 * k, 108 * k]),
+      target: (hi, f) => (f < 6 ? [22 * k, (88 + (f - 3) * 4) * k] : [20 * k, 100 * k]),
       keys: [
         [0, {}],
         [2, { pelvis: [-0.5, 0, -1.5], R: { d: [-2, -1, -6] }, twist: -8 }, "w"],
-        [4, { ...top, pelvis: [3, 0, 14], R: { w: c.pre([12 * k, -2, 98 * k]), aim: A(0.2, 0, 1), elbow: c.pre([10, -12, 52]) }, fR: { pitch: -30, d: [1, 1, 2] } }],
-        [8, { ...top, pelvis: [3, 0, 15], R: { w: c.pre([10 * k, -2, 108 * k]), aim: A(0.1, 0, 1), elbow: c.pre([8, -12, 58]) }, fL: { d: [2, 0, 8], pitch: -30 }, fR: { d: [-1, 0, 4], pitch: -50 } }],
-        [16, { ...top, pelvis: [3, 0, 15], R: { w: c.pre([10 * k, -2, 107 * k]), aim: A(0.1, 0, 1), elbow: c.pre([8, -12, 58]) }, fL: { d: [3, 0, 10], pitch: -30 }, fR: { d: [-1, 0, 6], pitch: -50 } }],
-        [30, { pelvis: [2, 0, 12], lean: -24, twist: 8, R: { d: [2, 0, 4] }, fL: { d: [2, 0, 6], pitch: -25 }, fR: { d: [0, 0, 4], pitch: -40 } }, "f"],
+        [4, { ...top, pelvis: [3, 0, 14], R: { w: c.pre([22 * k, -2, 90 * k]), aim: A(0.6, 0, 0.8), elbow: c.pre([16, -16, 56]) }, fR: { pitch: -30, d: [1, 1, 2] } }],
+        [8, { ...top, pelvis: [3, 0, 15], R: { w: c.pre([20 * k, -2, 100 * k]), aim: A(0.45, 0, 0.9), elbow: c.pre([16, -16, 64]) }, fL: { d: [2, 0, 8], pitch: -30 }, fR: { d: [-1, 0, 4], pitch: -50 } }],
+        [16, { ...top, pelvis: [3, 0, 15], R: { w: c.pre([19 * k, -2, 99 * k]), aim: A(0.45, 0, 0.9), elbow: c.pre([16, -16, 64]) }, fL: { d: [3, 0, 10], pitch: -30 }, fR: { d: [-1, 0, 6], pitch: -50 } }],
+        [30, { pelvis: [2, 0, 12], lean: -14, twist: 8, R: { d: [2, 0, 4] }, fL: { d: [2, 0, 6], pitch: -25 }, fR: { d: [0, 0, 4], pitch: -40 } }, "f"],
       ],
     };
   },
@@ -157,8 +158,8 @@ export const SPECIAL_ANIMS = {
   pistonStomp: (c) => ({
     keys: [
       [0, {}],
-      [8, { fL: { w: c.pre([8, 6, 26]), pitch: -20, knee: c.pre([30, 8, 60]) }, pelvis: [-1, 0, 2.5], lean: -8, L: { w: c.pre([4, 12, 74]), aim: A(0, 0, 1) }, R: { w: c.pre([2, -12, 74]), aim: A(0, 0, 1) }, look: c.pre([90, 0, 50]) }, "w"],
-      [15, { fL: { w: c.pre([10, 7, 30]), pitch: -15, knee: c.pre([30, 8, 64]) }, pelvis: [-1, 0, 3.5], lean: -10, L: { w: c.pre([4, 12, 78]), aim: A(0, 0, 1) }, R: { w: c.pre([2, -12, 78]), aim: A(0, 0, 1) } }, "w"],
+      [8, { fL: { w: c.pre([9, 6, 32]), pitch: -20, knee: c.pre([30, 8, 64]) }, pelvis: [-1, 0, 5.5], lean: -3, L: { w: c.pre([4, 12, 74]), aim: A(0, 0, 1) }, R: { w: c.pre([2, -12, 74]), aim: A(0, 0, 1) }, look: c.pre([90, 0, 50]) }, "w"],
+      [15, { fL: { w: c.pre([11, 7, 37]), pitch: -15, knee: c.pre([30, 8, 70]) }, pelvis: [-1, 0, 6.5], lean: -4, L: { w: c.pre([4, 12, 78]), aim: A(0, 0, 1) }, R: { w: c.pre([2, -12, 78]), aim: A(0, 0, 1) } }, "w"],
       [18, { fL: { w: c.pre([12, 7, 4.3]), pitch: 0 }, pelvis: [1, 0, -7], lean: 26, L: { w: c.pre([18, 6, 22]), aim: A(0.3, 0, -1) }, R: { w: c.pre([16, -6, 22]), aim: A(0.3, 0, -1) }, headPitch: 14, look: c.pre([60, 0, 0]) }],
       [24, { fL: { w: c.pre([12, 7, 4.3]) }, pelvis: [1, 0, -7.5], lean: 28, L: { w: c.pre([18, 6, 21]), aim: A(0.3, 0, -1) }, R: { w: c.pre([16, -6, 21]), aim: A(0.3, 0, -1) }, headPitch: 14 }],
       [32, { fL: { d: [1, 0, 0] }, pelvis: [0.5, 0, -3], lean: 12, L: { d: [0, 0, -6] }, R: { d: [0, 0, -6] } }, "f"],
