@@ -688,7 +688,7 @@ class Game {
   }
 
   applyDamage(d, dmg, attacker) {
-    d.brk = Math.min(100, (d.brk || 0) + dmg * 1.2);
+    d.brk = Math.min(100, (d.brk || 0) + dmg * BREAK.perDmg);
     d.stintDmg = (d.stintDmg || 0) + Math.min(dmg, d.hp);
     d.hp = Math.max(0, d.hp - dmg);
     d.lastAttacker = attacker ? attacker.seat : -1;

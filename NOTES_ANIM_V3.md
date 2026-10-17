@@ -49,3 +49,22 @@ hitboxes following. Send review images. Free-licence models allowed if agents do
 2. Specials and states review on the new stance; fix the mechanics test "sweep goes under a block".
 3. Review sheets to Zach (game camera), then balance sims (reach changes), tests, delivery as a zip
    of the rig anims + changed files (avoid 9 batches of 50 paths; use fresh stagedPath for resends).
+
+## 18 Oct 02:55 resume (Zach 22:56: floating knockdowns, auto recovery, accurate falls, air dodge / combo break)
+- CAUSE of the glide: `airborne` was `y > 0.01 || vy > 0.01`. A falling body whose y landed in (0, 0.01] stopped
+  counting as airborne: no gravity, no landing, stuck in "launch" sliding with vx forever (any fighter).
+  Fix (core_3_fighter physics): airborne = y > 0 || vy > 0, a "launch" state always runs air physics, AIR_TIMEOUT
+  150 frames forces the body down. Probe: scratchpad/kd/probe.mjs (0 stuck in 6x300 s; was 107 events).
+- Falls re-keyed (tools/anim/falls.mjs, posture keys): launch / launchhold laid back with both feet up (lowest point =
+  back/hips, never a lone foot), down/downko flat on the back, getup sit-up -> crouch -> stance. Library uses
+  FALL_ANIMS before STATE_ANIMS.
+- pose.mjs: footOnShin (foot set on the shin), footAngles, limitAnkles (airborne feet held to toes up 25 / pointed 60 /
+  turn 25 / roll 25). Clip.finish() runs limitAnkles on every clip. posture(): pelvis.spin, feet.rel.
+- BREAK meter (core_3 BREAK const; start 30, +3.5/s, +0.5 per damage). Punch+kick together (3 frames):
+  full meter in hitstun/launch = combo break ("burst" state, 34 invuln, Game.onBreak shoves enemies within 95 into
+  blockstun, fx "break", callout BREAK); half meter in a jump = air dodge (once per jump, toward/away).
+  Air attacks wait 2 frames for the second button. CPU: L.burst/L.dodge. HUD: violet strip at the bottom of each
+  health bar (make_hud.py .Brk/.BrkFill, card classes stBrkHalf/stBrkFull), status "BREAK READY", footer
+  "MOUSE1+2 break". New clips burst, airdodgef, airdodgeb (196 clips). Tests added in test/mechanics.mjs.
+- NEXT: joint fixes from Zach's review attachment (see summary list), sheets, balance, deliver (script, xml, css,
+  rig vmdl + anims zip), README controls + BREAK, project doc.

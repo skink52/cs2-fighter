@@ -11,7 +11,7 @@ const MAX_JUGGLE = 3;
 const BUFFER = 5;              // frames a button press stays buffered
 // The BREAK meter: fills over time and when hit. Punch + kick together spends it:
 // a full meter breaks a combo (while being hit or knocked into the air), half a meter air-dodges.
-const BREAK = { start: 40, perSec: 7, perDmg: 1.2, burst: 100, dodge: 50, together: 3 };
+const BREAK = { start: 30, perSec: 3.5, perDmg: 0.5, burst: 100, dodge: 50, together: 3 };
 const TIP_FRACTION = 0.75;     // toe hitbox sits 75% of the way from ankle to toe
 
 class Fighter {

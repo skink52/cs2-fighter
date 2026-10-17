@@ -730,9 +730,9 @@ test("BREAK: half a meter air-dodges once per jump; the meter refills over time 
   assert(a.state !== "airdodge", "only one dodge per jump");
   runUntil(g, () => a.state === "idle", SIM_HZ * 2);
   a.brk = 0; idle(g, SIM_HZ);
-  assert(a.brk > 5 && a.brk < 9, "refill per second " + a.brk);
+  assert(a.brk > 2.5 && a.brk < 4.5, "refill per second " + a.brk);
   g.applyDamage(a, 10, g.fighters[1]);
-  assert(a.brk > 17, "damage adds meter " + a.brk);
+  assert(a.brk > 7, "damage adds meter " + a.brk);
 });
 
 console.log(failed ? `\n${failed} FAILED` : "\nALL PASSED");
