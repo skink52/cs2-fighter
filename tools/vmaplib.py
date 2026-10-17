@@ -204,6 +204,28 @@ class MapBuilder:
         if add: self.add(mm)
         return mm
 
+    def annulus(self, cx, cy, z0, z1, r0, r1, mat, sides=48, physics="default"):
+        """Flat ring (washer) between radii r0 and r1, e.g. lines painted on a floor."""
+        o = (cx, cy, (z0 + z1) / 2)
+        h = (z1 - z0) / 2
+        V = []
+        for (r, z) in ((r0, -h), (r1, -h), (r0, h), (r1, h)):
+            for k in range(sides):
+                a = 2 * math.pi * k / sides
+                V.append((r * math.cos(a), r * math.sin(a), z))
+        ib, ob, it, ot = 0, sides, 2 * sides, 3 * sides
+        F = []
+        for k in range(sides):
+            a, b = k, (k + 1) % sides
+            F.append(((it + a, ot + a, ot + b, it + b), mat))      # top
+            F.append(((ib + a, ib + b, ob + b, ob + a), mat))      # bottom
+            F.append(((ob + a, ob + b, ot + b, ot + a), mat))      # outer side
+            F.append(((ib + b, ib + a, it + a, it + b), mat))      # inner side
+        mm = self.mapmesh(polymesh(V, F, o), o, physics)
+        self.scene["meshes"].append({"verts": [[v[0] + o[0], v[1] + o[1], v[2] + o[2]] for v in V], "faces": [[list(l), m] for l, m in F]})
+        self.add(mm)
+        return mm
+
     def prop(self, model, origin, angles=(0, 0, 0), scales=(1, 1, 1), solid="0", props=None, color=None, static=True):
         p = {"model": model, "solid": solid, "rendercolor": "255 255 255" if not color else "%d %d %d" % tuple(color), "skin": "default",
              "disableshadows": "0", "emissive": "1", "emissive_lighting_boost": "1.0", "bakelighting": "-1", "rendertocubemaps": "1"}

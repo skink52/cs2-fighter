@@ -126,6 +126,10 @@ for sx in (-1, 1):
 for (y0, y1) in [(-90, -64), (124, 150)]:
     box(-480, 480, y0, y1, 24, 24.5, M["lacquer"])
 box(-480, 480, -64, -62.5, 24, 24.5, M["gold"]); box(-480, 480, 122.5, 124, 24, 24.5, M["gold"])
+# a ring painted on the floor round the middle of the stage, with a small one inside
+B.annulus(0, 30, 24, 24.4, 102, 106, M["gold"], sides=64)
+B.annulus(0, 30, 24, 24.4, 33, 35.5, M["gold"], sides=40)
+B.prism(0, 30, 24, 24.4, 9, M["gold"], sides=20)
 # steps up from the street at the back corners
 for sx in (-1, 1):
     for k in range(3):
