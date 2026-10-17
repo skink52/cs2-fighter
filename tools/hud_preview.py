@@ -227,6 +227,9 @@ def draw(items, img):
             padl = pxv(st.get('padding-left', '0px'), 0) or 0
             lines = wrap(d, txt, f, w - 2 * bw - padl, sp)
             lh = fs * 1.18
+            for line in lines:
+                if d.textlength(line, font=f) + sp * (len(line) - 1) > w - 2 * bw - padl + 1:
+                    problems.append('text wider than %s (%dpx): "%s"' % (k.id or sorted(k.base)[0], w, line[:40]))
             if len(lines) * lh > h - pad + 2: problems.append('text overflows %s (%d lines of %dpx in %dpx): "%s"' % (k.id or sorted(k.base)[0], len(lines), fs, h, txt[:40]))
             sh = re.match(r'([\d.]+)px\s+([\d.]+)px', st.get('text-shadow', ''))
             for li, line in enumerate(lines):
@@ -316,7 +319,7 @@ def fight_state(ko=False):
     reset()
     cls('pb_game', 'stMatch', 'stMode_duel'); cls('pb_game', 'stHidden', on=False)
     card(1, 'skink52', 'TIMBER', 64, 0, wins=1, me=True)
-    card(2, 'Longnameplayer.', 'PIROUETTE', 8 if ko else 38, 1)     # the longest name the script lets through (14)
+    card(2, 'Longnameplaye.', 'PIROUETTE', 8 if ko else 38, 1)      # as long as the script lets a name be (14)
     txt('pb_timer', '47'); txt('pb_round', 'ROUND 2'); txt('pb_queue', 'NEXT UP: BOB  ·  STREAK: SKINK52 x2')
     if ko:
         cls('pb_c2', 'stKO'); txt('pb_announce', 'K.O.'); cls('pb_announce', 'stShow', 'stKo')
