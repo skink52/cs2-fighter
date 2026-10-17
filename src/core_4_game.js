@@ -481,7 +481,7 @@ class Game {
     if (winnerTeam >= 0) {
       this.teamWins[winnerTeam]++;
       const perfect = this.active.filter((i) => this.fighters[i].team === winnerTeam).every((i) => this.fighters[i].hp >= this.fighters[i].maxHp);
-      this.announce(this.teamLabel(winnerTeam) + (perfect ? "  -  PERFECT" : ""), "sub", 1.6);
+      this.announce(this.teamLabel(winnerTeam) + " WINS" + (perfect ? "  -  PERFECT" : ""), "sub", 1.6);
     } else {
       this.announce("DRAW", "big", 1.4);
     }
@@ -513,7 +513,7 @@ class Game {
     this.phase = "matchEnd"; this.phaseT = 0;
     if (this.matchWinner >= 0) {
       const label = this.teamLabel(this.matchWinner);
-      this.announce(label + " WINS", "win", 3.0);
+      this.announce(label + " WINS THE MATCH", "win", 3.0);
       this.sound("win");
       this.fx("win", { team: this.matchWinner });
       let text = "[Puppet Brawl] " + label + " wins";

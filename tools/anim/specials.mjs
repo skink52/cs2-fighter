@@ -286,22 +286,24 @@ export const SPECIAL_ANIMS = {
       ],
     };
   },
-  // Arabesque: tips forward on the lead leg as the rear leg swings up behind and over in a
-  // scorpion arc, the heel dropping onto the head in front
+  // Arabesque: a ballet grand battement - the rear leg swings straight up past the face, toe
+  // pointed, as the dancer rises onto the ball of the standing foot with the arms held out
   arabesque: (c) => {
     const k = FUK(c);
-    const T = c.pre([14 * k, -2, 88 * k]);
-    const top = { lean: 38, hipPitch: 12, pelvis: [3, 0, 0], fR: { w: v3.add(T, [-2, 0, 4]), pitch: 40, yaw: 0, knee: c.pre([-30, -6, 90]) }, L: { w: c.pre([22, 14, 40]), aim: A(1, 0.3, 0) }, R: { w: c.pre([4, -24, 46]), aim: A(0, -1, 0) }, fL: { pitch: -20 }, look: c.pre([60, 0, 20]), fistL: 0.1, fistR: 0.1 };
+    const T = c.pre([31 * k, -4, 86 * k]);
+    const arms = { L: { w: c.pre([12, 26, 58]), aim: A(1, 0.6, 0.3) }, R: { w: c.pre([-16, -26, 56]), aim: A(-1, -0.4, 0.2) }, fistL: 0.15, fistR: 0.15 };
+    const top = { ...arms, lean: -8, hipPitch: -6, pelvis: [3, 0, 1.5], rise: 1.5,
+      fR: { w: T, pitch: 62, yaw: 0, knee: c.pre([60, -6, 70]) }, fL: { pitch: -22 }, look: c.pre([60, 0, 34]) };
     return {
-      target: () => [14 * k, 88 * k],
+      target: () => [31 * k, 86 * k],
       keys: [
         [0, {}],
-        [4, { lean: 18, pelvis: [1, 0, 0.5], fR: { w: c.pre([-26, -6, 30]), pitch: -20, knee: c.pre([-40, -6, 40]) }, L: { d: [4, 2, -4] }, R: { d: [-2, -4, -2] } }, "w"],
-        [7, { ...top, fR: { ...top.fR, w: c.pre([-12, -4, 76]), knee: c.pre([-40, -6, 80]) } }],
+        [3, { lean: 6, pelvis: [1.5, 0, -1], fR: { w: c.pre([-18, -6, 6]), pitch: -10 }, L: { d: [2, 3, 2] }, R: { d: [-3, -3, 1] } }, "w"],
+        [6, { ...top, fR: { w: c.pre([30, -5, 36]), pitch: 20, knee: c.pre([60, -6, 50]) }, lean: -2 }],
         [9, top],
-        [13, top],
-        [20, { lean: 14, pelvis: [1, 0, 0], fR: { w: c.pre([-10, -6, 20]), pitch: -20, knee: c.pre([-20, -6, 40]) } }, "f"],
-        [27, { fR: { d: [0, 0, 1] } }],
+        [13, { ...top, fR: { ...top.fR, w: v3.add(T, [1.5, 0, 1]) } }],
+        [19, { ...arms, lean: 2, pelvis: [2, 0, -0.5], fR: { w: c.pre([-6, -6, 14]), pitch: 10 }, fistL: 0.5, fistR: 0.5 }, "f"],
+        [26, { pelvis: [1, 0, -0.3], fR: { d: [0, 0, 1] } }],
         [34, {}],
       ],
     };

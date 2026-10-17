@@ -703,6 +703,8 @@ function hudInitDefaults() {
   for (const id of HUD_LABELS) { h.SetDialogVariableString(id, "t", ""); hudCache.set("v:" + id, ""); }
 }
 
+// names longer than a name plate holds end in a dot
+const shortName = (s, n) => (s.length > n ? s.slice(0, n - 1) + "." : s);
 // Classes the script switches all start with "st" (none has a rule of its own in the css).
 const ANN_STYLES = { big: "stBig", fight: "stFight", ko: "stKo", win: "stWin", sub: "stSub", small: "stSmall" };
 const COMBO_KINDS = { counter: "stCounter", perfect: "stPerfect", finish: "stFinish" };
@@ -717,7 +719,7 @@ function updateHud() {
     const c = H.cards[i], id = "pb_c" + (i + 1);
     hudClass(id, "stShow", c.show);
     if (!c.show) continue;
-    hudVar(id + "_name", c.name);
+    hudVar(id + "_name", shortName(c.name, i < 2 ? 14 : 13));
     hudVar(id + "_fighter", c.fighter);
     hudWidth(id + "_fill", c.hp);
     hudWidth(id + "_chip", c.hp);

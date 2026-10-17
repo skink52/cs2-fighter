@@ -214,11 +214,13 @@ class MapBuilder:
         self.add(e)
         return e
 
-    def light(self, origin, color, lumens, rng, angles=(90, 0, 0), cone=180, shadows=0, style=""):
+    def light(self, origin, color, lumens, rng, angles=(90, 0, 0), cone=180, shadows=0, style="", direct=1):
+        """direct: 1 static (baked), 2 stationary (lights moving things per pixel and can flicker; at most 4 may overlap)"""
         p = dict(LIGHT_BASE)
         p.update({"color": "%d %d %d 255" % color, "brightness_lumens": str(lumens), "brightness": "%.4f" % (lumens / 2560),
                   "brightness_legacy": "%.3f" % (lumens / 1000), "range": str(rng), "outer_angle": "%.1f" % cone,
-                  "inner_angle": "%.1f" % (cone * 0.75 if cone < 180 else 180), "castshadows": str(shadows), "light_style": style})
+                  "inner_angle": "%.1f" % (cone * 0.75 if cone < 180 else 180), "castshadows": str(shadows), "light_style": style,
+                  "directlight": str(direct)})
         e = self.entity("light_omni2", origin, angles, p)
         self.scene["lights"].append({"origin": list(origin), "color": list(color), "lumens": lumens, "range": rng, "angles": list(angles), "cone": cone})
         self.add(e)

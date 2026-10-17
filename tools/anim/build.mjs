@@ -63,8 +63,10 @@ for (const c of clips) {
   bytes += writeSMD(path.join(animDir, c.name + "_m.smd"), c.poses.map(mirrorPose));
   data.clips[c.name] = bakeClip(c);
   const fade = c.fade ?? (c.key && /^(hit|block|cblock|launch|land|squat)/.test(c.key) ? 0.03 : c.loop ? 0.12 : 0.05);
-  entries.push({ name: c.name, loop: c.loop, fade, idle: c.key === "idle" && c.name.startsWith("timber") });
+  entries.push({ name: c.name, loop: c.loop, fade, idle: false });
   entries.push({ name: c.name + "_m", loop: c.loop, fade, idle: false });
+  // the map's rig templates start on "idle" (StartingAnim / IdleAnim): give it a clip of that name
+  if (c.key === "idle" && c.name.startsWith("timber")) entries.push({ name: "idle", src: c.name, loop: true, fade, idle: true });
 }
 
 const animNode = (c) => `\t\t\t\t\t{
@@ -84,7 +86,7 @@ const animNode = (c) => `\t\t\t\t\t{
 \t\t\t\t\t\tdisable_compression = false
 \t\t\t\t\t\tanimgraph_additive = false
 \t\t\t\t\t\tdelete_from_compiled_model = false
-\t\t\t\t\t\tsource_filename = "models/puppet_brawl/rig/anims/${c.name}.smd"
+\t\t\t\t\t\tsource_filename = "models/puppet_brawl/rig/anims/${c.src || c.name}.smd"
 \t\t\t\t\t\timport_bone_scales = false
 \t\t\t\t\t\tstart_frame = -1
 \t\t\t\t\t\tend_frame = -1

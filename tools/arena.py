@@ -141,8 +141,9 @@ box(-498, 498, 148, 172, 318, 332, M["lacquer"])                          # shim
 box(-455, 455, 153, 167, 270, 284, M["lacquer"])                          # nuki
 box(-10, 10, 152, 168, 284, 318, M["black"])                              # gakuzuka
 box(-60, 60, 150, 156, 290, 314, M["black"])                              # name plaque
-# lanterns hanging from the tie beam
+# lanterns hanging from the tie beam (the middle is left clear for the announcer's world text)
 for k, x in enumerate(range(-340, 341, 85)):
+    if abs(x) < 150: continue
     B.prop(LANTERN, (x, 160, 262 - 6 * math.cos(k * 0.9) ** 2))
 
 # ------------------------------------------------------------------ facades behind the stage
@@ -334,7 +335,7 @@ for (y0, y1, z0, z1, x) in [(YB, -430, 380, 300, -300), (YB + 40, -430, 360, 330
 # the lantern string the fight camera sees across the top of the picture
 lantern_pts = wire(-596, 236, 268, 596, 236, 268, sag=30, segs=14)
 for p in lantern_pts[1:-1]:
-    B.prop(LANTERN, (p[0], p[1], p[2] - 6))
+    if abs(p[0]) > 160: B.prop(LANTERN, (p[0], p[1], p[2] - 6))
 lantern_pts = wire(-590, -260, 330, 590, -260, 330, sag=30, segs=12)
 for p in lantern_pts[1:-1]:
     B.prop(LANTERN, (p[0], p[1], p[2] - 10))
@@ -367,14 +368,16 @@ for e in of_class("func_button"):
     box(x - 3, x + 3, y - 3, y + 3, PLAT_Z, z - 12, M["dark"])
 
 # ------------------------------------------------------------------ lights
-# key: warm, from above the camera, plus two stage spots; rims: magenta and cyan from behind the fighters
-B.light((0, -520, 360), (255, 228, 200), 15000, 1500, (34, 90, 0), 44, 1)
+# key: warm, from above the camera, plus two stage spots; rims: magenta and cyan from behind the fighters.
+# The key, the rims and the burning drum are stationary so they light the fighters directly (no more than
+# 4 stationary lights may overlap anywhere); everything else is baked.
+B.light((0, -520, 360), (255, 228, 200), 15000, 1500, (34, 90, 0), 44, 1, direct=2)
 B.light((-210, -330, 300), (255, 236, 214), 14000, 1100, (36, 58, 0), 40, 1)
 B.light((210, -330, 300), (236, 240, 255), 14000, 1100, (36, 122, 0), 40, 1)
 B.light((-260, -360, 240), (255, 200, 170), 3000, 900, (22, 65, 0), 50, 0)
 B.light((260, -360, 240), (200, 220, 255), 3000, 900, (22, 115, 0), 50, 0)
-B.light((-300, 190, 270), (255, 50, 170), 12000, 900, (36, -45, 0), 50, 1)
-B.light((300, 190, 270), (40, 200, 255), 12000, 900, (36, -135, 0), 50, 1)
+B.light((-300, 190, 270), (255, 50, 170), 12000, 900, (36, -45, 0), 50, 0, direct=2)
+B.light((300, 190, 270), (40, 200, 255), 12000, 900, (36, -135, 0), 50, 0, direct=2)
 # practical glows: lit windows and shops, signs, lanterns, the burning drum, lamps, the drinks machines
 for (x, y, z, lit) in sorted(LIT_WINDOWS):
     col = (255, 196, 120) if lit in (1, 3) else (150, 200, 255)
@@ -385,13 +388,13 @@ for (o, c) in [((-465, YA - 40, 240), (255, 200, 60)), ((-190, YBB - 40, 230), (
                ((465, YD - 40, 222), (180, 90, 255)), ((140, YC - 40, 600), (255, 60, 170)), ((-450, YA - 20, 335), (255, 80, 40)),
                ((-366, YA - 20, 220), (255, 140, 60))]:
     B.light(o, c, 1300, 420)
-B.light((-392, 262, 60), (255, 130, 50), 3200, 520, style="candle_2")          # burning drum, flickering
+B.light((-392, 262, 60), (255, 130, 50), 3200, 420, style="candle_2", direct=2)   # burning drum, flickering
 for (x, y, z) in [(-420, YA - 44, 236), (362, YD - 44, 242)]:
     B.light((x, y, z), (170, 205, 255), 2400, 520, (90, 0, 0), 80, 0)    # street lamps, pointing down
 B.light((26, YC - 50, 50), (200, 225, 255), 1300, 260)                    # drinks machines
 B.light((-100, YBB - 8, 210), (225, 240, 255), 900, 260)                  # strip lights
-B.light((262, YC - 8, 210), (225, 240, 255), 900, 260, style="fluorescent_flicker")
-for (x, y) in [(-340, 160), (0, 160), (340, 160)]:
+B.light((262, YC - 8, 210), (225, 240, 255), 900, 260)
+for (x, y) in [(-300, 160), (300, 160)]:
     B.light((x, y - 10, 250), (255, 110, 70), 900, 300)                   # torii lanterns
 for x in (-300, 0, 300):
     B.light((x, 236, 226), (255, 120, 70), 700, 260)                      # lantern string over the street

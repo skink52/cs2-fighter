@@ -680,7 +680,7 @@ test("tag team: a benched partner wins back half the damage of their stint", () 
   idle(g, Math.round(SIM_HZ * 1.6));
   frame(g, { 0: IN.BLOCK }); frame(g, { 0: IN.BLOCK | IN.SPECIAL });
   idle(g, SIM_HZ * 3);
-  assert(a.background && a.hp === 80, "hp 60 -> " + a.hp);
+  assert(a.background && a.hp === a.maxHp - 20, "hp " + (a.maxHp - 40) + " -> " + a.hp + " (want " + (a.maxHp - 20) + ")");
 });
 
 console.log(failed ? `\n${failed} FAILED` : "\nALL PASSED");

@@ -86,8 +86,8 @@ const MOVES = {
   },
   steamRam: {
     name: "Steam Ram", total: 44, base: "stance", special: true, motion: ["B", "F"], btn: "K",
-    hits: [{ from: 13, to: 30, tip: "S", r: 12, dmg: 13, level: "mid", hitstun: 24, blockstun: 16, push: 260, hitstop: 9, snd: "heavy", launch: { vx: 320, vy: 360 }, kd: true, chip: 3 }],
-    vel: [[12, 30, 470]], armor: [1, 30],
+    hits: [{ from: 13, to: 30, tip: "S", r: 12, dmg: 12, level: "mid", hitstun: 24, blockstun: 16, push: 260, hitstop: 9, snd: "heavy", launch: { vx: 320, vy: 360 }, kd: true, chip: 3 }],
+    vel: [[12, 30, 470]], armor: [1, 24],
   },
   pistonStomp: {
     name: "Piston Stomp", total: 40, base: "stance", special: true, motion: ["D", "D"], btn: "K",
@@ -130,7 +130,7 @@ const MOVES = {
     name: "Cartwheel", total: 34, base: "stance", special: true, motion: ["F", "F"], btn: "K",
     hits: [
       { from: 9, to: 13, tip: "fF", r: 7, dmg: 6, level: "mid", hitstun: 18, blockstun: 10, push: 50, hitstop: 5, snd: "hit", chip: 1 },
-      { from: 17, to: 21, tip: "fT", r: 7, dmg: 7, level: "mid", hitstun: 20, blockstun: 12, push: 120, hitstop: 7, snd: "heavy", launch: { vx: 180, vy: 400 }, kd: true, chip: 1 },
+      { from: 17, to: 21, tip: "fT", r: 7, dmg: 6, level: "mid", hitstun: 20, blockstun: 12, push: 120, hitstop: 7, snd: "heavy", launch: { vx: 180, vy: 400 }, kd: true, chip: 1 },
     ],
     vel: [[4, 26, 360]],
   },

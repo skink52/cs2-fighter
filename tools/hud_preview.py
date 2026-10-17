@@ -316,13 +316,18 @@ def fight_state(ko=False):
     reset()
     cls('pb_game', 'stMatch', 'stMode_duel'); cls('pb_game', 'stHidden', on=False)
     card(1, 'skink52', 'TIMBER', 64, 0, wins=1, me=True)
-    card(2, 'CPU 2', 'PIROUETTE', 8 if ko else 38, 1)
+    card(2, 'Longnameplayer.', 'PIROUETTE', 8 if ko else 38, 1)     # the longest name the script lets through (14)
     txt('pb_timer', '47'); txt('pb_round', 'ROUND 2'); txt('pb_queue', 'NEXT UP: BOB  ·  STREAK: SKINK52 x2')
     if ko:
         cls('pb_c2', 'stKO'); txt('pb_announce', 'K.O.'); cls('pb_announce', 'stShow', 'stKo')
     else:
         cls('pb_k1', 'stShow', 'stTag', 'stCounter', 'stHits'); txt('pb_k1_tag', 'COUNTER'); txt('pb_k1_hits', '3'); txt('pb_k1_sub', '38 DMG')
         cls('pb_k2', 'stShow', 'stTag', 'stPerfect'); txt('pb_k2_tag', 'PERFECT BLOCK')
+
+def win_state():
+    fight_state(ko=True)
+    BYID['pb_announce'].cls = set(BYID['pb_announce'].base)
+    txt('pb_announce', 'SKINK52 WINS THE MATCH'); cls('pb_announce', 'stShow', 'stWin')
 
 def intro_state():
     fight_state();
@@ -386,6 +391,8 @@ fight_state(); run(2333, BG_WIDE, PREFIX + '_fight_wide.png')
 fight_state(); run(1440, BG_43, PREFIX + '_fight_43.png', zones=False)       # 4:3: CS2's team counter takes half the top
 fight_state(ko=True); run(1920, BG, PREFIX + '_ko.png', 'ko')
 intro_state(); run(1920, BG, PREFIX + '_intro.png', 'intro')
+win_state(); run(1920, BG, PREFIX + '_win.png', 'win')
+win_state(); run(1440, BG_43, PREFIX + '_win_43.png', 'win', zones=False)
 teams_state(); run(1920, BG, PREFIX + '_teams.png', 'teams')
 lobby_state(); run(1920, BG, PREFIX + '_lobby.png', 'lobby')
 join_state(); run(1920, BG, PREFIX + '_join.png', 'join')
