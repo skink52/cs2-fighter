@@ -112,6 +112,17 @@ In the `CONFIG` block at the top of `scripts/puppet_brawl.js`:
 
 Game rules sit in the same block: `ROUND_TIME`, `ROUNDS_TO_WIN`, `CPU_LEVEL`, `BACK_BLOCKS`, `PERFECT_BLOCK`, `PERFECT_WINDOW`.
 
+## What to check in this build
+
+- [ ] Fighters move with the new animations and **blend** from one move into the next (no snapping).
+- [ ] Hits feel heavy (a freeze, a camera kick, sparks), blocks flash a blue ring and slide the defender back, COUNTER shows.
+- [ ] The camera sits lower and rises when someone jumps or is launched.
+- [ ] The HUD: bars across the top, the clock under CS2's team counter, callouts under the bars, nothing hidden under CS2's own HUD.
+- [ ] Lighting: the fighters are the best-lit thing on screen; signs, lanterns and drinks machines glow; the burning drum flickers.
+- [ ] The banners, drinks machines and the two side-street shop signs show (not pink checkerboard).
+- [ ] Sounds: light and heavy hits, COUNTER, blocks, landings and dashes.
+- [ ] The stage text under the torii (ROUND 1, FIGHT!, K.O., ... WINS) is readable from the bleachers.
+
 ## Troubleshooting
 
 | Symptom | Likely cause and fix |
