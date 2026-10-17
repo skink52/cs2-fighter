@@ -16,6 +16,10 @@ export const STANCES = {
     hands: { L: [16.5, 3.5, 61.5], R: [8.5, -3.2, 63.5] }, elbows: { L: [6, 15, 44], R: [-2, -15, 46] },
     look: [90, 2, 63], fist: 1,
     idle: { frames: 48, bounce: 1.35, shift: 0.7, sway: 2.2, fists: 1.2, breathe: 0.6 },
+    air: { pelvis: [0, 0, 31], hipYaw: -16, lean: 6, twist: -4, lead: { p: [9, 5], z: 11, yaw: 20, pitch: -25, knee: [40, 10, 44] }, rear: { p: [-6, -5], z: 7, yaw: -10, pitch: -45, knee: [30, -8, 34] },
+      hands: { L: [15.0, 5.0, 58.0], R: [8.0, -4.0, 60.0] }, elbows: { L: [6, 16, 42], R: [-2, -16, 44] }, look: [90, 2, 58] },
+    crouch: { pelvis: [2.0, 0.5, 19.0], hipYaw: -18, lean: 38, twist: -6, lead: { p: [13.5, 6.0], yaw: 14 }, rear: { p: [-12.0, -6.5], yaw: -38, heel: 22 },
+      hands: { L: [19.0, 4.0, 40.5], R: [13.5, -3.0, 42.0] }, elbows: { L: [10, 15, 27], R: [4, -15, 28] }, look: [80, 2, 38] },
   },
   brass: {    // riot heavy: wide, low, square, forearms up like a shield, flat-footed
     base: ["13_17", 36.0], cheat: -20,
@@ -24,6 +28,10 @@ export const STANCES = {
     hands: { L: [15.0, 5.0, 58.5], R: [12.0, -5.5, 58.0] }, elbows: { L: [6, 18, 40], R: [4, -18, 40] },
     look: [90, 0, 62], fist: 1,
     idle: { frames: 80, bounce: 0.55, shift: 0.9, sway: 1.2, fists: 0.6, breathe: 1.0 },
+    air: { pelvis: [0, 0, 31], hipYaw: -10, lean: 5, twist: -2, lead: { p: [8, 7], z: 10, yaw: 20, pitch: -20, knee: [40, 12, 42] }, rear: { p: [-6, -7], z: 7, yaw: -10, pitch: -40, knee: [30, -10, 32] },
+      hands: { L: [14.0, 6.0, 56.0], R: [11.0, -6.0, 55.5] }, elbows: { L: [6, 18, 40], R: [4, -18, 40] }, look: [90, 0, 57] },
+    crouch: { pelvis: [1.0, 0, 18.5], hipYaw: -12, lean: 34, twist: -3, lead: { p: [12.5, 8.4], yaw: 18 }, rear: { p: [-11.5, -8.6], yaw: -28, heel: 18 },
+      hands: { L: [18.0, 5.5, 39.5], R: [15.0, -5.0, 39.0] }, elbows: { L: [10, 18, 25], R: [8, -18, 25] }, look: [80, 0, 37] },
   },
   pirouette: { // dancer-agent: tall, narrow, on the toes, hands loose and open, poised
     base: ["13_17", 36.0], cheat: -22,
@@ -32,6 +40,10 @@ export const STANCES = {
     hands: { L: [17.5, 4.0, 57.0], R: [7.0, -6.5, 54.0] }, elbows: { L: [8, 16, 42], R: [-4, -16, 40] },
     look: [90, 0, 64], fist: 0.45,
     idle: { frames: 60, bounce: 0.9, shift: 0.5, sway: 3.0, fists: 1.6, breathe: 0.7 },
+    air: { pelvis: [0, 0, 32], hipYaw: -20, lean: 2, twist: -8, lead: { p: [10, 4], z: 12, yaw: 15, pitch: -35, knee: [40, 8, 46] }, rear: { p: [-7, -4], z: 7, yaw: -20, pitch: -55, knee: [30, -6, 34] },
+      hands: { L: [16.0, 5.0, 56.0], R: [6.0, -7.0, 53.0] }, elbows: { L: [8, 16, 42], R: [-4, -16, 40] }, look: [90, 0, 59] },
+    crouch: { pelvis: [1.5, 0.2, 19.5], hipYaw: -26, lean: 36, twist: -10, lead: { p: [12.0, 4.2], yaw: 10 }, rear: { p: [-11.5, -4.8], yaw: -52, heel: 26 },
+      hands: { L: [20.0, 4.5, 39.0], R: [11.0, -6.0, 36.5] }, elbows: { L: [11, 16, 27], R: [0, -16, 25] }, look: [80, 0, 38] },
   },
   motley: {   // masked trickster: low, loose, swaying, hands low and wide, head cocked
     base: ["13_17", 36.0], cheat: -20,
@@ -40,8 +52,24 @@ export const STANCES = {
     hands: { L: [16.0, 9.0, 52.0], R: [6.0, -10.0, 50.0] }, elbows: { L: [6, 20, 40], R: [-4, -20, 38] },
     look: [90, 0, 60], fist: 0.7, headRoll: 9,
     idle: { frames: 64, bounce: 1.1, shift: 1.2, sway: 4.0, fists: 2.4, breathe: 0.6 },
+    air: { pelvis: [0, 0, 30], hipYaw: -14, lean: 9, twist: -4, lead: { p: [9, 6], z: 11, yaw: 25, pitch: -25, knee: [40, 12, 42] }, rear: { p: [-6, -6], z: 7, yaw: -15, pitch: -45, knee: [30, -10, 32] },
+      hands: { L: [15.0, 9.0, 51.0], R: [6.0, -10.0, 49.0] }, elbows: { L: [6, 20, 38], R: [-4, -20, 36] }, look: [90, 0, 56] },
+    crouch: { pelvis: [1.0, 0, 18.5], hipYaw: -18, lean: 38, twist: -5, lead: { p: [13.5, 7.5], yaw: 22 }, rear: { p: [-12.5, -7.5], yaw: -36, heel: 20 },
+      hands: { L: [18.5, 9.0, 35.0], R: [10.0, -9.5, 34.0] }, elbows: { L: [10, 20, 23], R: [0, -20, 22] }, look: [80, 0, 36] },
   },
 };
+
+// where a stance puts each ankle, and the foot's pitch (a raised heel stands on the ball)
+export function footHome(S, s) {
+  const st = s === "L" ? S.lead : S.rear;
+  // a raised heel pivots the foot on its ball, which lifts the ankle
+  const a = (st.heel || 0) * DEG;
+  return [st.p[0], st.p[1], st.z ?? (a ? 1.29 + 5.4 * Math.sin(a) + 3.04 * Math.cos(a) : BIND_ANKLE_Z)];
+}
+export function footPitch(S, s) {
+  const st = s === "L" ? S.lead : S.rear;
+  return st.pitch ?? -(st.heel || 0);
+}
 
 // the stance pose (no idle motion), facing +X before the camera cheat is applied
 export function buildStance(id, mods = {}) {
@@ -63,14 +91,20 @@ export function buildStance(id, mods = {}) {
   twistSpine(W, (-S.hipYaw * 0.55 + S.twist) * DEG);   // chest turns back toward the front
   bendSpine(W, [0, 1, 0], S.lean * DEG);
   // feet
-  placeFoot(W, "L", [S.lead.p[0], S.lead.p[1], BIND_ANKLE_Z], S.lead.yaw);
-  placeFoot(W, "R", [S.rear.p[0], S.rear.p[1], BIND_ANKLE_Z + (S.rear.heel ? 1.6 : 0)], S.rear.yaw, { pitch: -(S.rear.heel || 0) });
+  placeFoot(W, "L", footHome(S, "L"), S.lead.yaw, { pitch: footPitch(S, "L"), pole: S.lead.knee || null });
+  placeFoot(W, "R", footHome(S, "R"), S.rear.yaw, { pitch: footPitch(S, "R"), pole: S.rear.knee || null });
   // hands
   placeHand(W, "L", S.hands.L, { elbow: S.elbows.L, aim: v3.norm([1, -0.15, 0.55]) });
   placeHand(W, "R", S.hands.R, { elbow: S.elbows.R, aim: v3.norm([1, 0.25, 0.75]) });
   lookAt(W, S.look, { roll: S.headRoll || 0 });
   return W;
 }
+
+// the crouching guard: the stance with the crouch overrides
+export function crouchStance(id) { const S = STANCES[id]; return { ...S, ...S.crouch, fist: S.fist, headRoll: S.headRoll, cheat: S.cheat }; }
+export function buildCrouch(id) { return buildStance(id, STANCES[id].crouch); }
+export function airStance(id) { const S = STANCES[id]; return { ...S, ...S.air, fist: S.fist, headRoll: S.headRoll, cheat: S.cheat }; }
+export function buildAir(id) { return buildStance(id, STANCES[id].air); }
 
 // world pose with the camera cheat applied
 export const cheat = (id, W) => turn(W, STANCES[id].cheat);

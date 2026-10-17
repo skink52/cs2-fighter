@@ -6,6 +6,11 @@ import path from "node:path";
 import { Clip } from "./clip.mjs";
 import { readSMD } from "./smd.mjs";
 import { STANCES, buildIdle, buildWalk, cheat } from "./stances.mjs";
+import { MOVE_ANIMS as NORMAL_ANIMS, buildMove } from "./moves.mjs";
+import { SPECIAL_ANIMS } from "./specials.mjs";
+const MOVE_ANIMS = { ...NORMAL_ANIMS, ...SPECIAL_ANIMS };
+import { STATE_ANIMS } from "./states.mjs";
+import { EXTRA_ANIMS } from "./extras.mjs";
 
 export const FIGHTERS = ["timber", "brass", "pirouette", "motley"];
 export const STATE_KEYS = ["idle", "intro", "walkf", "walkb", "crouch", "block", "cblock", "blockhit", "cblockhit", "squat", "air", "airrise", "land", "dashf", "dashb",
@@ -18,7 +23,7 @@ function oldClip(name, file, loop) {
   return new Clip(name, readSMD(p), { loop });
 }
 
-// builders for the new clips: (fighter id, core) -> Clip (facing +X, before the camera cheat)
+// builders for the new state clips: (fighter id, core) -> Clip (facing +X, before the camera cheat)
 const NEW = {
   idle: (id) => buildIdle(id),
   walkf: (id, core) => buildWalk(id, 1, core.walk(id, 1)),
@@ -28,34 +33,44 @@ const LOOPS = new Set(["idle", "walkf", "walkb", "crouch", "block", "cblock", "a
 // keys with no clip of their own in the previous exporter, and what stands in for them
 const OLD_ALIAS = { intro: "idle", blockhit: "block", cblockhit: "cblock", throwv: "thrown" };
 
+// one clip for one fighter, or null
+export function buildClip(id, key, core) {
+  if (!core.walk) core = { ...core, walk: (fid, dir) => { const ch = core.CHARACTERS.find((c) => c.id === fid); return dir > 0 ? ch.stats.walkF : ch.stats.walkB; } };
+  const ch = core.CHARACTERS.find((c) => c.id === id);
+  const name = `${id}_${key}`;
+  let c = null, fresh = false;
+  if (NEW[key]) { c = NEW[key](id, core); fresh = true; }
+  else if (STATE_ANIMS[key]) { c = STATE_ANIMS[key](id, core); fresh = true; }
+  else if (EXTRA_ANIMS[key] && (c = EXTRA_ANIMS[key](id, core))) fresh = true;
+  else if (MOVE_ANIMS[key] && ch.moves[key]) { c = buildMove(id, key, core, MOVE_ANIMS[key]); fresh = true; }
+  else {
+    // previous exporter's names: styled normals per fighter, specials by id, victory per fighter
+    const k = OLD_ALIAS[key] || key;
+    const tries = k === "victory" ? [`victory_${id}`] : [`${k}_${id}`, k];
+    for (const t of tries) { c = oldClip(name, t, LOOPS.has(key)); if (c) break; }
+    // the old clips ran at base timing (played at 1/frame-multiplier speed)
+    if (c && ch.moves[key]) c.rate = 1 / (ch.stats.frame || 1);
+  }
+  if (!c) return null;
+  c.name = name;
+  c.loop = LOOPS.has(key) || c.loop;
+  if (fresh && !c.final) { c.finish(); c.poses = c.poses.map((W) => cheat(id, W)); }
+  c.fresh = fresh;
+  c.key = key;
+  return c;
+}
+
 export function buildLibrary(core) {
   const clips = [];
   const sets = {};
   for (const id of FIGHTERS) {
     const set = (sets[id] = {});
     const ch = core.CHARACTERS.find((c) => c.id === id);
-    const moveIds = Object.keys(ch.moves);
-    for (const key of [...STATE_KEYS, ...moveIds]) {
-      const name = `${id}_${key}`;
-      let c = null, fresh = false;
-      if (NEW[key]) { c = NEW[key](id, core); fresh = true; }
-      else {
-        // previous exporter's names: styled normals per fighter, specials by id, victory per fighter
-        const k = OLD_ALIAS[key] || key;
-        const tries = k === "victory" ? [`victory_${id}`] : [`${k}_${id}`, k];
-        for (const t of tries) { c = oldClip(name, t, LOOPS.has(key)); if (c) break; }
-        // the old clips ran at base timing (played at 1/frame-multiplier speed) and walks at
-        // 104 FU/s; the core and the rig now play every clip at its own rate
-        if (c && ch.moves[key]) c.rate = 1 / (ch.stats.frame || 1);
-      }
-      if (!c) { console.warn("no clip for", name); continue; }
-      c.name = name;
-      c.loop = LOOPS.has(key) || c.loop;
-      if (fresh) { c.finish(); c.poses = c.poses.map((W) => cheat(id, W)); }
-      c.fresh = fresh;
-      c.key = key;
+    for (const key of [...STATE_KEYS, ...Object.keys(ch.moves)]) {
+      const c = buildClip(id, key, core);
+      if (!c) { console.warn("no clip for", `${id}_${key}`); continue; }
       clips.push(c);
-      set[key] = name;
+      set[key] = c.name;
     }
   }
   return { clips, sets };
