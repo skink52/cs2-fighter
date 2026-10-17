@@ -33,6 +33,9 @@ const PER = {
       keys: [[0, 262], [5, 300], [9, 322], [12, 335], [34, 415]], aim: 322, keep: {} },
   },
   motley: {
+    // Jester Drop: the leg flung up past the head and chopped down on top (an overhead)
+    jesterDrop: { take: "144_09", tip: "fT", support: "R", place: "pelvis", pelvisDx: -4,
+      keys: [[0, 1896], [6, 1940], [10, 1962], [13, 1976], [16, 1986], [34, 2056]], aim: 1976, keep: { armL: 0.3, armR: 0.3 } },
     // Cartwheel: a real cartwheel turned in place (the game carries Motley along)
     cartwheel: { take: "88_07", tip: "fF", support: "R", place: "pelvis", aimBy: "travel", strip: 1, yaw: 0,
       keys: [[0, 6], [4, 24], [26, 118], [34, 156]], aim: 6, inEnd: 4, outStart: 26, keep: {} },

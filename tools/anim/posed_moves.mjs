@@ -69,4 +69,6 @@ function sweepKeys(id) {
 
 export const POSED_MOVES = {
   sweep: (id, core) => keyed(id, "sweep", core, sweepKeys),
+  // Motley's banana-peel sweep is the same spin-sweep, done slipping (same frame data)
+  bananaSweep: (id, core) => keyed(id, "bananaSweep", core, sweepKeys),
 };

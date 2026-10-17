@@ -55,7 +55,7 @@ export const STANCES = {
   },
   motley: {   // masked trickster: low, loose, swaying, hands low and wide, head cocked
     cheat: 0,
-    pelvis: [0, -1, 33], hipYaw: -45, hipPitch: 10, hipRoll: 4, lean: 16, twist: 14, side: -6,
+    pelvis: [0, -1, 34.5], hipYaw: -45, hipPitch: 8, hipRoll: 4, lean: 12, twist: 14, side: -6,
     lead: { p: [17, 8], yaw: 20 }, rear: { p: [-15, -10], yaw: -50, heel: 10 },
     hands: { L: [24, 10, 46], R: [12, -14, 42] }, elbows: { L: [12, 22, 36], R: [0, -24, 36] },
     palms: { L: [0.2, -0.4, -0.9], R: [0.3, 0.3, -0.9] },
