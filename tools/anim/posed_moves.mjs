@@ -67,7 +67,37 @@ function sweepKeys(id) {
   ];
 }
 
+// Spin Kick (Pirouette): up on the toes of the rear foot, turning, the lead leg snaps out three
+// times, each a little higher, chambering in between; arms open for balance.
+function spinKickKeys(id) {
+  const S = STANCES[id];
+  const base = { ...stanceSpec(S), fistL: S.fist, fistR: S.fist };
+  const R = S.rear.p;
+  const pose = (pel, yaw, chestPitch, foot, footZ, arms) => { const s = cloneSpec(base);
+    s.pelvis.p = pel; s.pelvis.yaw = yaw; s.pelvis.pitch = -4; s.chest = { yaw: 8, pitch: chestPitch, side: 0 };
+    s.feet.R = { p: [R[0] + 4, R[1] + 1], yaw: -40, heel: 30 };
+    s.feet.L = { p: foot, z: footZ, yaw: 0, pitch: 0, knee: [foot[0] + 20, 6, footZ + 30] };
+    s.hands.L = { p: arms ? [14, 20, 56] : [20, 8, 52], elbow: [8, 26, 50], palm: [0, -0.3, -0.9] };
+    s.hands.R = { p: arms ? [-6, -22, 56] : [6, -14, 50], elbow: [-4, -26, 48], palm: [0, 0.3, -0.9] };
+    s.look = [100, 0, 62]; s.fistL = 0.2; s.fistR = 0.2;
+    return s; };
+  const chamber = (yaw) => pose([-3, -1, 40], yaw, -2, [10, 4], 24, true);
+  const kick = (yaw, z, x) => pose([-5, -1, 40.5], yaw, -6, [x, 3], z, true);
+  return [
+    [0, base],
+    [4, chamber(-30)],
+    [8, kick(-20, 36, 37)], [11, kick(-18, 37, 38)],
+    [13, chamber(-35)],
+    [16, kick(-20, 42, 36)], [19, kick(-18, 43, 37)],
+    [21, chamber(-35)],
+    [24, kick(-20, 50, 35)], [28, kick(-18, 51, 36)],
+    [33, chamber(-30)],
+    [40, base],
+  ];
+}
+
 export const POSED_MOVES = {
+  spinKick: (id, core) => keyed(id, "spinKick", core, spinKickKeys),
   sweep: (id, core) => keyed(id, "sweep", core, sweepKeys),
   // Motley's banana-peel sweep is the same spin-sweep, done slipping (same frame data)
   bananaSweep: (id, core) => keyed(id, "bananaSweep", core, sweepKeys),

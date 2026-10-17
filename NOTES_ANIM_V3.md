@@ -39,6 +39,9 @@ hitboxes following. Send review images. Free-licence models allowed if agents do
   Balance: TIMBER hp 104 dmg 1.05, BRASS hp 109, PIROUETTE dmg 1.10, MOTLEY hp 92, Motley stance raised
   (pelvis 34.5). 600 s x2: L1 51/59/44/47, L2 49/44/47/60 (noise ~5%). Not yet delivered (v3a on PC).
 
+- 22:45 (container clock): Spin Kick keyed as postures (three visible lead-leg kicks). v3b delivered:
+  script + models/puppet_brawl/rig/pb_rig_anims_v3b.zip (supersedes v3a zip; Zach told to use v3b).
+
 ## Next
 1. Wire mocap moves into moves.mjs buildMove (per fighter spec table) for kickMid, longKick,
    roundhouse (+ air kicks from 90_05..07 / 75_16); hand-key a real sweep (deep crouch, rear leg
