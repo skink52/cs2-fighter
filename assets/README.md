@@ -38,16 +38,16 @@ Each fighter has a stance of their own (guard, weight, how they walk) and every 
 - **Bodies react:** struck fighters flash, hit reactions differ for high, mid, crouching and launched hits, landings and dashes kick up dust.
 - **The camera** follows the fight, rises with jumps and launches so heads stay in the picture, kicks on hits and pulls in on a K.O.
 
-## First build (command line)
+## Building this version (command line)
 
-The map, the script, the HUD, the rig and these new or changed assets need compiling:
-- models: `pb_rig.vmdl`, `props/pb_nobori_ningyo`, `pb_nobori_hissho`, `pb_nobori_oiri`, `pb_nobori_yomatsuri`, `pb_vending_red`, `pb_vending_white`, `pb_vending_blue`, `pb_sign_izakaya`, `pb_sign_yakitori`
-- their materials in `materials/puppet_brawl/props/`
+New or changed since the last build: the map, the script, the HUD, the sound events, the rig (`pb_rig.vmdl` and its 368 clips in `anims/`) and these new models with their materials in `materials/puppet_brawl/props/`: `pb_nobori_ningyo`, `pb_nobori_hissho`, `pb_nobori_oiri`, `pb_nobori_yomatsuri`, `pb_vending_red`, `pb_vending_white`, `pb_vending_blue`, `pb_sign_izakaya`, `pb_sign_yakitori`.
 
-A build script that compiles stale addon assets first (like your `compile_maps.ps1` asset pre-pass) picks these up. Then:
-1. In CS2 run `map mg_cs2_fighter`. The console should print `[puppet_brawl] v… ready: stage … 4 pads, 4 watch spots, HUD on, 18 sounds`.
-2. Walk down to the glowing pads behind the barrier, stand on one and press **E**.
-3. For a solo test: `sv_cheats 1` then `pb_cpu_match` to watch two CPUs fight. `pb_stop` (or the STOP CPUs button) ends it. Or press **ADD CPU**, then **START**.
+1. Close CS2 and Hammer. Put `mg_cs2_fighter` in `C:\source1\cs2port\build_queue.txt` and run `run_build.bat`. It compiles the models, materials, rig and sounds first, then builds the map.
+2. Start CS2 with Workshop Tools and run `map mg_cs2_fighter`. The script and the HUD compile when the map loads. The console should print `[puppet_brawl] v2.0.0 ready: stage … 4 pads, 4 watch spots, HUD on, 18 sounds`. If it says v1.0.0, the old script is still running.
+3. Walk down to the glowing pads behind the barrier, stand on one and press **E**.
+4. For a solo test: `sv_cheats 1` then `pb_cpu_match` to watch two CPUs fight. `pb_stop` (or the STOP CPUs button) ends it. Or press **ADD CPU**, then **START**.
+
+The map from before this version is kept as `maps/mg_cs2_fighter_pre_polish.vmap`. The files in `models/puppet_brawl/rig/anims/` whose names don't start with `brass_`, `motley_`, `pirouette_` or `timber_` are the old clips; nothing uses them any more, so they can be deleted.
 
 ## Controls
 
@@ -127,6 +127,7 @@ Game rules sit in the same block: `ROUND_TIME`, `ROUNDS_TO_WIN`, `CPU_LEVEL`, `B
 
 | Symptom | Likely cause and fix |
 |---|---|
+| Console says v1.0.0 and the fighters don't animate | The old compiled script is running with the new rig. From the CS2 folder run `game\bin\win64\resourcecompiler.exe -i content\csgo_addons\mg_cs2_fighter\scripts\puppet_brawl.js` (and the same for `panorama\layout\custom_game\puppet_brawl.xml` and `panorama\styles\custom_game\puppet_brawl.css`), then load the map again |
 | Fighters invisible | `pb_rig.vmdl` hasn't compiled. Compile it and check its log |
 | Agent frozen in a T-pose | The bone-merge failed; send me the console output |
 | Fighters snap between moves instead of blending | Tell me: the clips have blend times set in the rig, and I'll check how CS2 is playing them |
