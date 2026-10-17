@@ -60,7 +60,7 @@ class Game {
     for (let i = 0; i < SPARK_POOL; i++) this.sparks.push({ x: 0, y: 0, life: 0, max: 1, size: 8, color: { r: 255, g: 255, b: 255 } });
     this.sparkNext = 0;
     this.events = [];
-    this.cam = { cx: 0, cy: 50, half: 240, shake: 0 };
+    this.cam = { cx: 0, cy: 50, half: 240, shake: 0, kick: 0, kickV: 0, punch: 0, focus: null };
     this.hud = this.makeHud();
     this.announceQueue = [];
     this.announceTimer = 0;
@@ -81,6 +81,8 @@ class Game {
   // visual effects for the renderer (stage flashes, rings, particles); the core never reads them back
   fx(kind, data) { this.events.push(Object.assign({ t: "fx", fx: kind, frame: this.frame }, data)); }
   shake(amount) { this.cam.shake = Math.max(this.cam.shake, amount * 4); }
+  // a directional jolt of the camera along the fight line (it springs back), in fighter units
+  kick(dir, amount) { this.cam.kickV += dir * amount * 30; }
   spark(x, y, color, size) {
     const s = this.sparks[this.sparkNext];
     this.sparkNext = (this.sparkNext + 1) % this.sparks.length;
@@ -473,7 +475,7 @@ class Game {
     this.projectiles = [];
     for (const f of this.fighters) f.projectile = null;
     this.clearAnnounce();
-    if (reason === "ko") { this.slowmo = Math.round(SIM_HZ * 1.1); this.announce("K.O.", "ko", 1.6); this.sound("ko"); }
+    if (reason === "ko") { this.slowmo = Math.round(SIM_HZ * 1.6); this.announce("K.O.", "ko", 1.6); this.sound("ko"); }
     else if (reason === "time") { this.announce("TIME", "big", 1.2); this.sound("bell"); }
     if (winnerTeam >= 0) {
       this.teamWins[winnerTeam]++;
@@ -675,6 +677,7 @@ class Game {
 
   onKO(d, attacker) {
     this.shake(3);
+    this.cam.focus = { x: attacker ? (d.x + attacker.x) / 2 : d.x, t: Math.round(SIM_HZ * 1.6) };
     for (const i of this.queue) { const w = this.fighters[i]; if (w.background) w.cheering = 50; }
     if (this.tagMode) for (const i of this.active) { const w = this.fighters[i]; if (w.background && !w.ko) w.cheering = 50; }
   }
@@ -690,9 +693,22 @@ class Game {
     return rel < this.cfg.zoneLow ? "low" : rel > this.cfg.zoneHigh ? "high" : "mid";
   }
 
+  // How hard a hit lands decides everything the players feel: the freeze on contact (hitstop),
+  // the camera kick, the size of the flash and which sound plays. Tiers: 0 light, 1 medium,
+  // 2 heavy, 3 big (launchers, knockdowns, specials and finishers).
+  impactOf(A, h, fromProjectile) {
+    const special = fromProjectile || !!(A.move && (A.move.special || A.move.combo));
+    let tier = h.snd === "heavy" ? 2 : h.dmg >= 6 ? 1 : 0;
+    if (h.launch || h.kd) tier = Math.max(tier, 2) + (h.dmg >= 10 ? 1 : 0);
+    if (special) tier = Math.max(tier, 2);
+    tier = Math.min(3, tier);
+    return { tier, special, stop: [7, 9, 12, 14][tier], kick: [1.5, 3, 5.5, 8][tier], spark: [9, 11, 14, 17][tier] };
+  }
+
   resolveHit(A, D, h, tip, fromProjectile) {
     const away = Math.sign(D.x - A.x) || A.facing;
     const wall = Math.abs(D.x) >= this.halfW - D.ch.stats.pushW - 2;
+    const imp = this.impactOf(A, h, fromProjectile);
     D.hitSerial++;
     const zone = this.zoneOf(h, tip, D);
     this.events.push({ t: "zone", zone, seat: D.seat });
@@ -706,34 +722,43 @@ class Game {
       D.setState("blockstun"); D.sf = 0;
       D.stun = perfect ? Math.max(2, Math.round(h.blockstun * 0.35)) : h.blockstun; D.blockLow = !!(D.held & IN.DOWN);
       D.vx = away * h.push * (perfect ? 0.35 : 0.75);
+      const hs = Math.max(4, imp.stop - 3);
       if (!fromProjectile) {
         A.moveBlocked = true; A.contactFrame = A.mf;
-        if (wall) A.vx -= away * h.push * 0.5;
-        const hs = Math.max(3, (h.hitstop || 4) - 2);
-        A.hitstop = hs + (perfect ? 10 : 0);
+        // the attacker bounces off the guard (more so against the wall)
+        A.kickV = -away * h.push * (wall ? 0.55 : 0.22);
+        A.hitstop = hs + (perfect ? 10 : 0); A.lastStop = A.hitstop;
         D.hitstop = hs;
-      } else D.hitstop = 3;
+      } else D.hitstop = 4;
       if (perfect) {
         D.hp = Math.min(D.maxHp, D.hp + (this.cfg.perfectHeal || 0));
         D.perfects++;
         D.guardF = -999;   // one perfect per press
         this.comboTimers[D.seat] = Math.round(SIM_HZ * 1.1); this.comboText[D.seat] = "PERFECT BLOCK"; this.comboKind[D.seat] = "perfect";
-        this.spark(tip.x, tip.y, { r: 255, g: 255, b: 255 }, 15);
+        this.spark(tip.x, tip.y, { r: 255, g: 255, b: 255 }, 16);
         this.sound("select");
         this.events.push({ t: "perfect", seat: D.seat });
-      } else this.spark(tip.x, tip.y, { r: 120, g: 210, b: 255 }, 9);
-      this.fx("block", { x: tip.x, y: tip.y, perfect, dir: away, seat: D.seat, heavy: h.snd === "heavy" });
+      } else this.spark(tip.x, tip.y, { r: 110, g: 200, b: 255 }, imp.spark - 2);
+      this.fx("block", { x: tip.x, y: tip.y, perfect, dir: away, seat: D.seat, heavy: imp.tier >= 2, tier: imp.tier, dx: D.x });
+      if (h.push * 0.75 >= 150 && !D.airborne) this.fx("dust", { x: D.x - away * 6, small: true, skid: true });
       this.sound("block");
+      if (imp.tier >= 2) this.sound("blockh");
+      this.kick(away, imp.kick * 0.45);
       return;
     }
     if (D.armored && D.armorHits < 1) {
       D.armorHits++;
       this.applyDamage(D, Math.round(h.dmg * 0.5), A);
-      D.hitstop = 5; if (!fromProjectile) A.hitstop = 5;
-      this.spark(tip.x, tip.y, { r: 255, g: 220, b: 120 }, 12);
-      this.sound("block");
+      D.hitstop = 7; if (!fromProjectile) { A.hitstop = 7; A.lastStop = 7; }
+      this.spark(tip.x, tip.y, { r: 255, g: 220, b: 120 }, 14);
+      this.fx("armor", { x: tip.x, y: tip.y, seat: D.seat, dir: away });
+      this.sound("blockh");
+      this.kick(away, 3);
       if (!D.ko) return;
     }
+    // counter hit: caught in the start-up of an attack
+    const counter = !fromProjectile && D.state === "attack" && D.move && D.move.hits.length > 0 && D.mf < D.move.hits[0].from;
+    const wasCrouching = !!(D.held & IN.DOWN) || D.state === "crouch" || D.state === "cblock";
     const scale = Math.max(0.45, 1 - 0.1 * D.combo);
     const dmg = Math.max(1, Math.round(h.dmg * scale));
     const wasAir = D.airborne;
@@ -743,12 +768,12 @@ class Game {
     // cancel whatever the defender was doing
     if (D.victim) { const v = D.victim; D.victim = null; v.thrower = null; v.setState("launch"); v.vy = 180; v.kdOnLand = true; }
     D.move = null; D.strikeInvuln = false; D.armored = false;
-    const hs = D.ko ? 14 : (h.hitstop || 5);
+    const hs = D.ko ? 18 : imp.stop + (counter ? 4 : 0);
     D.hitstop = hs;
-    if (!fromProjectile) A.hitstop = hs;
+    if (!fromProjectile) { A.hitstop = hs; A.lastStop = hs; }
     if (D.ko) {
       D.setState("launch"); D.sf = 0;
-      D.vx = away * 240; D.vy = Math.max(D.vy, 520); D.y = Math.max(D.y, 0.5);
+      D.vx = away * 260; D.vy = Math.max(D.vy, 560); D.y = Math.max(D.y, 0.5);
     } else if (h.launch || h.kd || wasAir || (h.airKd && wasAir)) {
       const L = h.launch || { vx: 160, vy: 300 };
       D.setState("launch"); D.sf = 0;
@@ -760,18 +785,23 @@ class Game {
       D.kdOnLand = true;
     } else {
       D.setState("hitstun"); D.sf = 0;
-      D.stun = h.hitstun;
+      D.stun = h.hitstun + (counter ? 4 : 0);
       D.hitLevel = zone === "high" ? "high" : "mid";
-      D.crouchHit = !!(D.held & IN.DOWN) || D.state === "crouch";
+      D.crouchHit = wasCrouching;
       D.vx = away * h.push;
-      if (wall && !fromProjectile) A.vx -= away * h.push * 0.6;
+      if (wall && !fromProjectile) A.kickV = -away * h.push * 0.6;
     }
-    const heavy = h.snd === "heavy" || D.ko;
-    this.spark(tip.x, tip.y, heavy ? { r: 255, g: 170, b: 60 } : { r: 255, g: 245, b: 200 }, heavy ? 13 : 9);
-    this.fx("hit", { x: tip.x, y: tip.y, heavy, ko: !!D.ko, dir: away, seat: A.seat, victim: D.seat, dx: D.x,
-      special: fromProjectile || !!(A.move && (A.move.special || A.move.combo)), color: A.ch.accent });
-    this.sound(D.ko ? "heavy" : (h.snd || "hit"));
-    if (heavy || h.shake) this.shake(h.shake ? 2 : 1);
+    const big = imp.tier >= 2 || D.ko;
+    this.spark(tip.x, tip.y, D.ko ? { r: 255, g: 240, b: 200 } : big ? { r: 255, g: 170, b: 60 } : { r: 255, g: 245, b: 200 }, D.ko ? 22 : imp.spark + (counter ? 3 : 0));
+    this.fx("hit", { x: tip.x, y: tip.y, heavy: big, tier: imp.tier, ko: !!D.ko, counter, dir: away, seat: A.seat, victim: D.seat, dx: D.x,
+      special: imp.special, color: A.ch.accent, launch: D.state === "launch" });
+    // layered impacts: the biggest hits add a crunch on top of the heavy thud
+    if (D.ko || imp.tier >= 3) { this.sound("heavy"); this.sound("crush"); }
+    else this.sound(imp.tier === 2 ? "heavy" : imp.tier === 1 ? "hit" : "hitl");
+    if (counter) { this.sound("counter"); this.comboTimers[A.seat] = Math.round(SIM_HZ * 1.0); this.comboText[A.seat] = "COUNTER"; this.comboKind[A.seat] = "counter"; }
+    this.kick(away, D.ko ? 12 : imp.kick + (counter ? 2 : 0));
+    if (D.ko) this.shake(3); else if (big || h.shake) this.shake(h.shake ? 2 : imp.tier >= 3 ? 1.3 : 0.8);
+    if (D.ko || imp.tier >= 3) this.cam.punch = Math.max(this.cam.punch, D.ko ? 0.16 : 0.06);
     // combo tracker: hits in a row before the defender recovers, damage, and the match best
     if (D.combo >= 2) {
       const finisher = !fromProjectile && A.move && A.move.combo ? "  " + A.move.name.toUpperCase() : "";
@@ -1021,13 +1051,25 @@ class Game {
       cx = (lo + hi) / 2;
       half = clamp((hi - lo) / 2 + 95, 160, this.halfW + 30);
     }
+    // a knockout pulls the camera in on the fall for a moment
+    if (c.focus && c.focus.t > 0) {
+      c.focus.t--;
+      cx = lerp(cx, c.focus.x, 0.7);
+      half = Math.max(150, half * 0.78);
+    } else c.focus = null;
     if (half < this.halfW) cx = clamp(cx, -this.halfW + half * 0.92, this.halfW - half * 0.92);
     else cx = 0;
-    c.cx = lerp(c.cx, cx, 0.12);
-    c.half = lerp(c.half, half, 0.07);
+    c.cx = lerp(c.cx, cx, c.focus ? 0.08 : 0.12);
+    c.half = lerp(c.half, half, c.focus ? 0.05 : 0.07);
     c.cy = 52;
     c.shake *= 0.84;
     if (c.shake < 0.05) c.shake = 0;
+    // the kick springs back with a little overshoot; the punch-in eases out
+    c.kickV += (-900 * c.kick - 36 * c.kickV) * DT;
+    c.kick += c.kickV * DT;
+    if (Math.abs(c.kick) < 0.01 && Math.abs(c.kickV) < 0.1) { c.kick = 0; c.kickV = 0; }
+    c.punch *= 0.9;
+    if (c.punch < 0.002) c.punch = 0;
   }
 
   // ------------------------------------------------------------------ HUD model

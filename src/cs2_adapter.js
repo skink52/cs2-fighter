@@ -4,7 +4,7 @@
 
 const TAG = "[puppet_brawl]";
 const ZERO = { x: 0, y: 0, z: 0 };
-const SOUND_IDS = ["hit", "heavy", "block", "whiff", "kd", "special", "ko", "bell", "tick", "select", "win"];
+const SOUND_IDS = ["hitl", "hit", "heavy", "crush", "counter", "block", "blockh", "whiff", "whiffh", "kd", "land", "dash", "special", "ko", "bell", "tick", "select", "win", "crowd"];
 // CS2 buttons -> game buttons. Each key is tested on its own: IsInputPressed with a
 // combined mask means "all of these at once".
 const INPUT_MAP = [
@@ -295,10 +295,17 @@ function updateStageText() {
 function stageCall(text, seconds) { stageSub = safeText(text).toUpperCase(); stageSubUntil = Instance.GetGameTime() + seconds; }
 
 const WHITE = { r: 255, g: 255, b: 255 };
+// a struck body flashes for a few frames (red on a hit, blue on a block)
+/** @type {{until: number, c: {r: number, g: number, b: number}}[]} */
+const bodyFlash = [0, 1, 2, 3].map(() => ({ until: -1, c: WHITE }));
+/** @param {number} seat @param {number} frames @param {{r: number, g: number, b: number}} c */
+function flashBody(seat, frames, c) { if (seat >= 0 && seat < 4) bodyFlash[seat] = { until: game.frame + frames, c }; }
 /** @param {any} e */
 function onFx(e) {
   if (!CONFIG.FX || !stage) return;
   const f = typeof e.seat === "number" ? game.fighters[e.seat] : null;
+  if (e.fx === "hit" && typeof e.victim === "number") flashBody(e.victim, e.ko ? 10 : 4 + (e.tier || 0), e.ko ? { r: 255, g: 80, b: 70 } : { r: 255, g: 130, b: 115 });
+  if (e.fx === "block" && typeof e.seat === "number") flashBody(e.seat, 3, e.perfect ? { r: 200, g: 245, b: 255 } : { r: 140, g: 195, b: 255 });
   switch (e.fx) {
     case "special": {
       if (!f) break;
@@ -312,13 +319,18 @@ function onFx(e) {
     }
     case "hit":
       if (e.ko) {
-        ring(e.dx, 0, 16, 150, WHITE, 26, true);
-        ring(e.x, e.y, 10, 70, e.color || WHITE, 16, false);
+        ring(e.dx, 0, 16, 160, WHITE, 28, true);
+        ring(e.x, e.y, 10, 80, e.color || WHITE, 18, false);
+        ring(e.x, e.y, 6, 44, WHITE, 10, false);
         particle("firework", e.dx, 60, 8, 1.2, e.dir);
         particle("sparks", e.x, e.y, 10, 0.3, e.dir);
-      } else if (e.heavy || e.special) {
-        particle("sparks", e.x, e.y, 10, 0.3, e.dir, 0.08);
-        if (e.special) ring(e.x, e.y, 6, 34, mix(e.color || WHITE, WHITE, 0.4), 9, false);
+      } else {
+        // a shock ring on everything solid, bigger with the hit; sparks fly on heavy ones
+        if (e.tier >= 1) ring(e.x, e.y, 4 + e.tier * 2, 18 + e.tier * 9, e.tier >= 2 ? { r: 255, g: 190, b: 110 } : { r: 255, g: 245, b: 220 }, 6 + e.tier * 2, false);
+        if (e.heavy || e.special) particle("sparks", e.x, e.y, 10, 0.3, e.dir, 0.06);
+        if (e.special) ring(e.x, e.y, 6, 38, mix(e.color || WHITE, WHITE, 0.4), 10, false);
+        if (e.counter) { ring(e.x, e.y, 8, 50, { r: 255, g: 214, b: 70 }, 12, false); stageCall("COUNTER", 0.8); }
+        if (e.launch) particle("streak", e.dx, 50, 6, 0.25, e.dir, 0.15);
       }
       break;
     case "block":
@@ -326,10 +338,18 @@ function onFx(e) {
         ring(e.x, e.y, 6, 44, { r: 140, g: 230, b: 255 }, 11, false);
         particle("zap", e.x, e.y, 10, 0.4, -e.dir, 0.2);
         stageCall("PERFECT BLOCK  -  " + game.displayName(e.seat), 1.3);
+      } else {
+        // the guard flashes: a shield ring at the contact, heavier blocks throw sparks
+        ring(e.x - e.dir * 3, e.y, 5, e.heavy ? 30 : 22, { r: 110, g: 205, b: 255 }, e.heavy ? 9 : 7, false);
+        if (e.heavy) particle("arc", e.x, e.y, 10, 0.25, -e.dir, 0.1);
       }
       break;
+    case "armor":
+      ring(e.x, e.y, 6, 34, { r: 255, g: 210, b: 120 }, 9, false);
+      particle("sparks", e.x, e.y, 10, 0.3, -e.dir, 0.06);
+      break;
     case "dust":
-      particle("dust", e.x, 2, 4, 0.5, 1, e.small ? 0.15 : 0);
+      particle("dust", e.x, 2, 4, 0.5, 1, e.small ? (e.skid ? 0.1 : 0.15) : 0);
       if (!e.small) ring(e.x, 0, 10, e.ko ? 80 : 52, { r: 150, g: 140, b: 130 }, 14, true);
       break;
     case "pop":
@@ -486,7 +506,9 @@ function renderFighter(seat) {
   else if (game.slowmo > 0) rate /= 3;
   rate = Math.round(rate * 50) / 50;
   if (rate !== b.rate) { fire(b, "SetPlaybackRate", rate); b.rate = rate; }
-  const t = tintFor(seat), tk = (t.r << 16) | (t.g << 8) | t.b;
+  const fl = bodyFlash[seat];
+  const t0 = tintFor(seat), t = game.frame <= fl.until ? { r: (t0.r * fl.c.r) >> 8, g: (t0.g * fl.c.g) >> 8, b: (t0.b * fl.c.b) >> 8 } : t0;
+  const tk = (t.r << 16) | (t.g << 8) | t.b;
   if (tk !== b.tint) { try { b.agent.SetColor({ r: t.r, g: t.g, b: t.b, a: 255 }); } catch (err) { /* ignore */ } b.tint = tk; }
   // team outlines in 2v2 (optional)
   const g = CONFIG.TEAM_GLOW && game.mode === "teams" && game.inMatch() ? (f.team === 0 ? 0xff4040 : 0x4080ff) : 0;
@@ -553,9 +575,11 @@ function cameraTransform() {
   }
   const cam = game.cam;
   const hfov = 2 * Math.atan(Math.tan(CONFIG.CAMERA_FOV * DEG / 2) * CONFIG.CAMERA_ASPECT / (4 / 3));
-  const dist = Math.max(CONFIG.CAMERA_MIN_DIST, cam.half / Math.tan(hfov / 2));
-  const look = toWorld(cam.cx, CONFIG.CAMERA_LOOK_HEIGHT, 0, 1);
-  const pos = toWorld(cam.cx, CONFIG.CAMERA_HEIGHT, dist, 1);
+  // hits kick the camera along the fight line and big ones punch it in
+  const dist = Math.max(CONFIG.CAMERA_MIN_DIST * 0.8, (cam.half / Math.tan(hfov / 2)) * (1 - (cam.punch || 0)));
+  const cx = cam.cx + (cam.kick || 0);
+  const look = toWorld(cx, CONFIG.CAMERA_LOOK_HEIGHT, 0, 1);
+  const pos = toWorld(cx, CONFIG.CAMERA_HEIGHT, dist, 1);
   if (cam.shake > 0) {
     const a = cam.shake * stage.scale * 0.5;
     pos.x += (Math.random() - 0.5) * a; pos.y += (Math.random() - 0.5) * a; pos.z += (Math.random() - 0.5) * a;

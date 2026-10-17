@@ -139,48 +139,61 @@ export function buildIdle(id, { name = id + "_idle" } = {}) {
   return c;
 }
 
-// Walk cycles: stance footwork. The game moves the fighter at `speed` (model units/s), so in the
-// clip the planted feet slide back at that speed and the stepping foot swings forward.
-// dir = 1: lead foot steps first (advance); dir = -1: rear foot steps back first (retreat).
+// Walk cycles. The game moves the fighter at its walking speed, so in the clip a planted foot
+// slides back at that speed while the other swings forward past it (a real walk: each foot
+// passes the other once per cycle, and the cycle ends back in the stance). The hips swing with
+// the stepping leg, the shoulders hold square, the guard rides along. Walking back keeps the
+// forearms up (holding back blocks).
 export const WALK = {
-  timber: { step: 22, lift: 1.6, bob: 0.9, lean: 3 },
-  brass: { step: 21, lift: 0.9, bob: 1.3, lean: 2 },
-  pirouette: { step: 25, lift: 2.2, bob: 0.6, lean: 1.5 },
-  motley: { step: 23, lift: 2.0, bob: 1.4, lean: 4 },
+  timber: { lift: 3.0, bob: 1.3, lean: 3, hip: 9, sway: 0.7 },
+  brass: { lift: 2.2, bob: 1.8, lean: 2, hip: 6, sway: 1.1 },
+  pirouette: { lift: 3.6, bob: 0.9, lean: 1.5, hip: 11, sway: 0.5 },
+  motley: { lift: 3.4, bob: 1.8, lean: 4, hip: 10, sway: 1.2 },
 };
 export function buildWalk(id, dir, speedFU, { name = `${id}_walk${dir > 0 ? "f" : "b"}`, fuToModel = 0.72 } = {}) {
   const S = STANCES[id], K = WALK[id];
   const v = speedFU * fuToModel / 64;               // model units per frame
-  const n = Math.max(12, Math.round(K.step / v));   // one step of each foot per cycle
+  const gap = S.lead.p[0] - S.rear.p[0];
+  const D = 2 * gap;                                // cycle length: each foot moves two stance gaps
+  const n = Math.max(16, Math.round(D / v));
   const base = buildStance(id);
-  const D = v * n;                                  // distance per cycle (model units)
-  const first = dir > 0 ? "L" : "R";               // the foot that leads the step
+  const first = dir > 0 ? "R" : "L";               // the back foot steps through first
   const feet0 = { L: [S.lead.p[0], S.lead.p[1]], R: [S.rear.p[0], S.rear.p[1]] };
-  const yaw = { L: S.lead.yaw, R: S.rear.yaw };
+  const yaw = { L: S.lead.yaw * 0.5, R: S.rear.yaw * 0.45 };
   const poses = [];
   for (let f = 0; f < n; f++) {
     const u = f / n;
     const W = clonePose(base);
-    // pelvis: dips as weight lands, leans into the walk
-    const bob = -K.bob * (0.5 - 0.5 * Math.cos(u * Math.PI * 4));
-    movePelvis(W, [dir * 0.6 * Math.sin(u * Math.PI * 2), 0, bob], { keepFeet: false });
+    // pelvis: low at each foot-strike, high as the legs pass; drifts over the planted foot
+    const bob = -K.bob * (0.5 + 0.5 * Math.cos(u * Math.PI * 4));
+    const plantedL = (first === "R") === (u < 0.5);
+    movePelvis(W, [0, (plantedL ? 1 : -1) * K.sway * Math.sin(u * Math.PI * 2) * (first === "R" ? 1 : -1), bob], { keepFeet: false });
+    const hipSwing = K.hip * Math.sin(u * Math.PI * 2) * dir * (first === "R" ? 1 : -1);
+    rotatePelvis(W, [0, 0, 1], hipSwing * DEG, { keepFeet: false });
+    twistSpine(W, -hipSwing * 0.7 * DEG);
     bendSpine(W, [0, 1, 0], dir * K.lean * DEG);
     for (const s of ["L", "R"]) {
-      // swing windows: first foot 0.02..0.42, second 0.52..0.92
-      const [a, b] = s === first ? [0.02, 0.42] : [0.52, 0.92];
-      const sw = u < a ? 0 : u > b ? 1 : smoothstep((u - a) / (b - a));
-      const lift = u > a && u < b ? Math.sin(((u - a) / (b - a)) * Math.PI) * K.lift : 0;
-      // feet stay planted in the world: in clip space they drift back by D*u; the swing returns them
-      const x = feet0[s][0] + dir * D * (sw - u) + (s === first ? 0 : 0);
-      const toeUp = u > a && u < b ? 6 * Math.sin(((u - a) / (b - a)) * Math.PI) : 0;
-      placeFoot(W, s, [x, feet0[s][1], BIND_ANKLE_Z + lift + (s === "R" && S.rear.heel ? 1.6 : 0)], yaw[s], { pitch: s === "R" && S.rear.heel ? -S.rear.heel : toeUp * 0.5 });
+      const [a, b] = s === first ? [0.02, 0.48] : [0.52, 0.98];
+      const t = clamp01((u - a) / (b - a));
+      const sw = u < a ? 0 : u > b ? 1 : smoothstep(t);
+      const swinging = u > a && u < b;
+      const lift = swinging ? Math.sin(t * Math.PI) * K.lift : 0;
+      const x = feet0[s][0] + dir * D * (sw - u);
+      const toe = swinging ? 10 * Math.sin(t * Math.PI) * (dir > 0 ? 1 : -0.6) : 0;
+      const heelOff = s === "R" && S.rear.heel ? footHome(S, "R")[2] - BIND_ANKLE_Z : 0;
+      placeFoot(W, s, [x, feet0[s][1], BIND_ANKLE_Z + lift + heelOff * (swinging ? 0.3 : 0.6)], yaw[s], { pitch: toe + (s === "R" && S.rear.heel ? -S.rear.heel * 0.6 : 0) });
     }
-    // guard rides along, a touch tighter walking back
-    const tight = dir < 0 ? 0.8 : 1;
+    // the guard rides with the chest; walking back the forearms come up in front of the face
     for (const s of ["L", "R"]) {
       const h = S.hands[s];
-      const off = [dir * 0.8 * Math.sin(u * Math.PI * 2 + (s === "L" ? 0 : Math.PI)), 0, bob * 0.7];
-      placeHand(W, s, v3.add([h[0] * tight + (1 - tight) * 6, h[1], h[2] + (dir < 0 ? 1.5 : 0)], off), { elbow: S.elbows[s], aim: s === "L" ? v3.norm([1, -0.15, 0.55]) : v3.norm([1, 0.25, 0.75]) });
+      const bobH = bob * 0.6 + 0.4 * Math.sin(u * Math.PI * 4 + (s === "L" ? 0 : 1));
+      if (dir > 0) {
+        placeHand(W, s, v3.add(h, [0.6 * Math.sin(u * Math.PI * 2 + (s === "L" ? 0 : Math.PI)), 0, bobH]), { elbow: S.elbows[s], aim: s === "L" ? v3.norm([1, -0.15, 0.55]) : v3.norm([1, 0.25, 0.75]) });
+      } else {
+        const hz = S.hands.L[2] + 1.5;
+        const tgt = s === "L" ? [13.5, 4.0, hz] : [12.5, -2.0, hz + 0.5];
+        placeHand(W, s, v3.add(tgt, [0, 0, bobH]), { elbow: s === "L" ? [11, 11, hz - 18] : [9, -9, hz - 18], aim: s === "L" ? v3.norm([0.25, -0.2, 1]) : v3.norm([0.25, 0.2, 1]) });
+      }
     }
     lookAt(W, S.look, { roll: S.headRoll || 0 });
     poses.push(W);
@@ -190,4 +203,5 @@ export function buildWalk(id, dir, speedFU, { name = `${id}_walk${dir > 0 ? "f" 
   c.speed = speedFU;
   return c;
 }
+const clamp01 = (t) => (t < 0 ? 0 : t > 1 ? 1 : t);
 const smoothstep = (t) => t * t * (3 - 2 * t);

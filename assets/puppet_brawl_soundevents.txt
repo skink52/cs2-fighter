@@ -141,4 +141,94 @@
 		pitch_random_max = 0.0
 		vsnd_files_track_01 = "sounds/training/highscore.vsnd"
 	}
+	"pb.hitl" =
+	{
+		base = "pb.base"
+		volume = 0.7
+		pitch = 1.12
+		vsnd_files_track_01 =
+		[
+			"sounds/physics/flesh/fist_hit_01.vsnd",
+			"sounds/physics/flesh/fist_hit_02.vsnd",
+			"sounds/physics/flesh/fist_hit_03.vsnd",
+			"sounds/physics/flesh/fist_hit_04.vsnd",
+			"sounds/physics/flesh/fist_hit_05.vsnd",
+		]
+	}
+	"pb.crush" =
+	{
+		base = "pb.base"
+		volume = 1.0
+		pitch = 0.88
+		vsnd_files_track_01 =
+		[
+			"sounds/player/kevlar_01.vsnd",
+			"sounds/player/kevlar_02.vsnd",
+			"sounds/player/kevlar_03.vsnd",
+			"sounds/player/kevlar_04.vsnd",
+			"sounds/player/kevlar_05.vsnd",
+			"sounds/player/kevlar_06.vsnd",
+			"sounds/player/kevlar_07.vsnd",
+			"sounds/player/kevlar_08.vsnd",
+		]
+	}
+	"pb.counter" =
+	{
+		base = "pb.base"
+		volume = 0.55
+		pitch = 1.6
+		pitch_random_min = 0.0
+		pitch_random_max = 0.0
+		vsnd_files_track_01 = "sounds/training/bell_impact.vsnd"
+	}
+	"pb.blockh" =
+	{
+		base = "pb.base"
+		volume = 0.75
+		pitch = 0.9
+		vsnd_files_track_01 =
+		[
+			"sounds/physics/metal/metal_box_impact_hard1.vsnd",
+			"sounds/physics/metal/metal_box_impact_hard2.vsnd",
+			"sounds/physics/metal/metal_box_impact_hard3.vsnd",
+		]
+	}
+	"pb.whiffh" =
+	{
+		base = "pb.base"
+		volume = 0.6
+		pitch = 0.72
+		vsnd_files_track_01 =
+		[
+			"sounds/weapons/knife/knife_slash1.vsnd",
+			"sounds/weapons/knife/knife_slash2.vsnd",
+		]
+	}
+	"pb.land" =
+	{
+		base = "pb.base"
+		volume = 0.5
+		vsnd_files_track_01 =
+		[
+			"sounds/player/footsteps/land_concrete_01.vsnd",
+			"sounds/player/footsteps/concrete_ct_01.vsnd",
+			"sounds/player/footsteps/concrete_ct_02.vsnd",
+			"sounds/player/footsteps/concrete_ct_03.vsnd",
+			"sounds/player/footsteps/concrete_ct_04.vsnd",
+		]
+	}
+	"pb.dash" =
+	{
+		base = "pb.base"
+		volume = 0.6
+		pitch = 1.1
+		vsnd_files_track_01 =
+		[
+			"sounds/player/footsteps/concrete_ct_05.vsnd",
+			"sounds/player/footsteps/concrete_ct_06.vsnd",
+			"sounds/player/footsteps/concrete_ct_07.vsnd",
+			"sounds/player/footsteps/concrete_ct_08.vsnd",
+			"sounds/player/footsteps/concrete_ct_09.vsnd",
+		]
+	}
 	// =================== END PUPPET BRAWL ===================

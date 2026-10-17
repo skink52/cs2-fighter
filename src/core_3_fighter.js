@@ -64,6 +64,8 @@ class Fighter {
     this.guardLock = 0;     // frames the guard holds still after blocking, before walking back
     this.benchHeal = 0;     // tag team: health still to win back on the bench
     this.top = 0;
+    this.kickV = 0;         // knockback that survives a move's own velocity (bounced off a guard)
+    this.lastStop = 0;      // hitstop of this fighter's last contact (for the combo buffer)
     this.setCharacter(0);
   }
 
@@ -151,7 +153,7 @@ class Fighter {
     this.throwInvuln = 0; this.airAttackUsed = false; this.hitIds.clear(); this.hitWindow = -1;
     this.combo = 0; this.comboDmg = 0; this.juggle = 0; this.kdOnLand = false;
     this.thrower = null; this.victim = null; this.throwPelvis = null;
-    this.landLag = 0; this.shakeX = 0; this.background = false;
+    this.landLag = 0; this.shakeX = 0; this.background = false; this.kickV = 0;
     this.clearInput();
     this.anim.name = ""; this.vis = 1;
   }
@@ -198,7 +200,9 @@ class Fighter {
     if (!this.active) { this.sf++; this.idleT++; this.anim.t += this.anim.rate; return; }
     if (this.hitstop > 0) {
       this.hitstop--;
-      this.shakeX = this.hitstop > 0 && (this.state === "hitstun" || this.state === "launch" || this.state === "blockstun") ? (this.hitstop % 2 ? 1.6 : -1.6) : 0;
+      // the one who got hit shudders while the action is frozen
+      const shaking = this.hitstop > 0 && (this.state === "hitstun" || this.state === "launch" || this.state === "blockstun");
+      this.shakeX = shaking ? (this.hitstop % 2 ? 1 : -1) * Math.min(2.6, 0.8 + this.hitstop * 0.13) * (this.state === "blockstun" ? 0.6 : 1) : 0;
       return;
     }
     this.shakeX = 0;
@@ -320,6 +324,7 @@ class Fighter {
         // taps are kept so F,F + button can still become a special during the dash
         this.setState(b.d === "F" ? "dash" : "backdash");
         if (b.d === "B") this.invuln = Math.max(this.invuln, 7);
+        g.fx("dust", { x: this.x - this.facing * (b.d === "F" ? 8 : -8), small: true }); g.sound("dash");
         return;
       }
     }
@@ -352,13 +357,13 @@ class Fighter {
     if (m.teleport !== undefined && f === m.teleport) g.teleportBehind(this);
     this.strikeInvuln = !!(m.invuln && f >= m.invuln[0] && f <= m.invuln[1]);
     this.armored = !!(m.armor && f >= m.armor[0] && f <= m.armor[1]);
-    if (m.hits.length && f === m.hits[0].from && !this.moveHit && !this.moveBlocked) g.sound(m.special ? "" : "whiff");
+    if (m.hits.length && f === m.hits[0].from && !this.moveHit && !this.moveBlocked) g.sound(m.special || m.hits[0].snd === "heavy" ? "whiffh" : "whiff");
     if (this.state === "throw") this.driveVictim();
     // combo strings: each move can name the next link for P and K (a slot in the fighter's
     // combo table), taken hit or miss once the first strike has come out
     if (m.def.next && this.ch.combos && g.phase === "fight" && m.hits.length && f > m.hits[0].from) {
       const plain = !(this.held & IN.DOWN) && !this.fwd() && !this.back();
-      const W = BUFFER + 10;   // a little extra, so a press during hitstop still counts
+      const W = BUFFER + Math.max(10, this.lastStop + 3);   // a press during hitstop still counts
       const slot = !plain ? null : m.def.next.P && this.hasPress(IN.PUNCH, W) ? m.def.next.P : m.def.next.K && this.hasPress(IN.KICK, W) ? m.def.next.K : null;
       const id = slot && this.ch.combos[slot];
       if (id && this.ch.moves[id]) { this.consume(IN.PUNCH); this.consume(IN.KICK); this.startMove(id); return; }
@@ -423,6 +428,11 @@ class Fighter {
   physics() {
     const g = this.game;
     if (this.state === "thrown") return;
+    if (this.kickV) {
+      this.x += this.kickV * DT;
+      this.kickV *= 0.82;
+      if (Math.abs(this.kickV) < 4) this.kickV = 0;
+    }
     if (this.airborne) {
       this.vy -= (this.state === "launch" ? LAUNCH_GRAVITY : GRAVITY) * DT;
       this.x += this.vx * DT;
@@ -453,7 +463,10 @@ class Fighter {
       this.setState("land");
       return;
     }
-    if (this.state === "air" || this.state === "squat") { this.vx = 0; this.landLag = 3; this.setState("land"); }
+    if (this.state === "air" || this.state === "squat") {
+      this.vx = 0; this.landLag = 3; this.setState("land");
+      g.fx("dust", { x: this.x, small: true }); g.sound("land");
+    }
   }
 
   // ---------------------------------------------------------------- animation
