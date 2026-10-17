@@ -33,10 +33,12 @@ class Fighter {
     this.blockLow = false; this.ko = false; this.kdOnLand = false;
     this.held = 0; this.prevHeld = 0; this.pendingPress = 0;
     this.taps = []; this.buf = {};
-    this.pose = newPose(); this.poseFrom = newPose(); this.tmpPose = newPose();
-    this.blendT = 0; this.blendDur = 0; this.animKey = "";
+    // animation clock: the clip playing, its restart key and the frame it is on
+    this.anim = { name: "", key: "", clip: null, t: 0, rate: 1 };
+    this.vis = 1;           // visual scale (vanishing moves)
+    this.lift = 0;          // how far the body is lifted to keep it out of the floor
     this.sk = makeSkeleton();
-    this.walkPhase = 0; this.idleT = seat * 17;
+    this.idleT = seat * 17;
     this.parts = [];
     for (let i = 0; i < PART_COUNT; i++) this.parts.push({ model: "limb", x: 0, y: 0, ang: 0, len: 1, r: 1, depth: 0, color: { r: 255, g: 255, b: 255 }, hidden: true });
     this.hurt = [];
@@ -46,7 +48,6 @@ class Fighter {
     this.depthBase = 0;
     this.shakeX = 0;
     this.landLag = 0;
-    this.victoryPose = "victoryBoxer";
     this.lastAttacker = -1;
     this.lobbyReady = false;
     this.cheering = 0;
@@ -69,8 +70,7 @@ class Fighter {
   setCharacter(idx) {
     this.charIdx = ((idx % CHARACTERS.length) + CHARACTERS.length) % CHARACTERS.length;
     this.ch = CHARACTERS[this.charIdx];
-    this.victoryPose = this.ch.victory;
-    this.animKey = "";
+    this.anim.name = "";
   }
 
   // ---------------------------------------------------------------- input helpers
@@ -153,7 +153,7 @@ class Fighter {
     this.thrower = null; this.victim = null; this.throwPelvis = null;
     this.landLag = 0; this.shakeX = 0; this.background = false;
     this.clearInput();
-    this.animKey = "";
+    this.anim.name = ""; this.vis = 1;
   }
 
   startMove(id) {
@@ -195,7 +195,7 @@ class Fighter {
   step() {
     const g = this.game;
     this.readInput();
-    if (!this.active) { this.sf++; this.idleT++; return; }
+    if (!this.active) { this.sf++; this.idleT++; this.anim.t += this.anim.rate; return; }
     if (this.hitstop > 0) {
       this.hitstop--;
       this.shakeX = this.hitstop > 0 && (this.state === "hitstun" || this.state === "launch" || this.state === "blockstun") ? (this.hitstop % 2 ? 1.6 : -1.6) : 0;
@@ -204,7 +204,7 @@ class Fighter {
     this.shakeX = 0;
     if (this.invuln > 0) this.invuln--;
     if (this.throwInvuln > 0) this.throwInvuln--;
-    this.sf++; this.idleT++;
+    this.sf++; this.idleT++; this.anim.t += this.anim.rate;
     const locked = g.phase !== "fight";
     switch (this.state) {
       case "intro": case "lobby":
@@ -456,32 +456,57 @@ class Fighter {
     if (this.state === "air" || this.state === "squat") { this.vx = 0; this.landLag = 3; this.setState("land"); }
   }
 
-  // ---------------------------------------------------------------- 3D animation link
-  // Which rig clip shows this fighter right now, how fast it plays, and a key that changes
-  // whenever the clip must restart (a new move, a new hit). Clip names match the exporter.
+  // ---------------------------------------------------------------- animation
+  // Which baked clip shows this fighter right now, how fast it plays (clip frames per sim
+  // frame) and a key that changes whenever the clip must restart (a new move, a new hit).
+  // The CS2 rig plays the same clip by name, so the model and the hit boxes stay together.
+  clipName(key, ch = this.ch) {
+    const set = CLIP_SETS[ch.id];
+    if (!set) return "";
+    return set[key] || set.idle || "";
+  }
   animState() {
-    const s = this.state, k = 1 / (this.ch.stats.frame || 1);
-    const st = (clip, rate = 1, key = clip) => ({ clip, rate, key });
+    const s = this.state;
+    let key = "idle", speed = 1, restart = "", ch = this.ch;
     switch (s) {
       case "attack": case "throw":
-        return this.move ? st(this.move.clip || this.move.id, k, "m" + this.moveSerial) : st("idle");
-      case "lobby": return this.lobbyReady ? st("lobbyready") : st("idle");
+        if (this.move) { key = this.move.id; restart = "m" + this.moveSerial; }
+        break;
+      case "intro": key = "intro"; break;
+      case "lobby": key = this.lobbyReady ? "lobbyready" : "idle"; break;
       case "walk": {
         const fwd = Math.sign(this.vx) * this.facing >= 0;
-        return st(fwd ? "walkf" : "walkb", Math.max(0.35, Math.abs(this.vx) / 104));
+        key = fwd ? "walkf" : "walkb";
+        // walk clips are authored at the fighter's walking speed
+        speed = Math.max(0.35, Math.abs(this.vx) / Math.max(1, fwd ? ch.stats.walkF : ch.stats.walkB));
+        break;
       }
-      case "crouch": case "block": case "cblock": case "squat": case "land": case "defeat": return st(s);
-      case "dash": return st("dashf"); case "backdash": return st("dashb");
-      case "air": return st(this.vy > 150 ? "airrise" : "air");
-      case "hitstun": return st(this.crouchHit ? "hitcrouch" : this.hitLevel === "high" ? "hithigh" : "hitmid", 1, "h" + this.hitSerial);
-      case "blockstun": return st(this.blockLow ? "cblock" : "block", 1, "b" + this.hitSerial);
-      case "launch": return this.sf < 20 ? st("launch", 1, "l" + this.hitSerial) : st("launchhold");
-      case "down": return st("down"); case "ko": return st("downko"); case "getup": return st("getup");
-      case "thrown": return st("thrown", this.thrower ? 1 / (this.thrower.ch.stats.frame || 1) : 1, "t" + this.hitSerial);
-      case "victory": return st("victory_" + this.ch.id);
-      case "waiting": return st(this.cheering > 0 ? "cheer" : "waiting");
-      default: return st("idle");
+      case "crouch": case "block": case "cblock": case "squat": case "land": case "defeat": key = s; break;
+      case "dash": key = "dashf"; break;
+      case "backdash": key = "dashb"; break;
+      case "air": key = this.vy > 150 ? "airrise" : "air"; break;
+      case "hitstun":
+        key = this.crouchHit ? "hitcrouch" : this.hitLevel === "high" ? "hithigh" : "hitmid";
+        restart = "h" + this.hitSerial;
+        break;
+      case "blockstun": key = this.blockLow ? "cblockhit" : "blockhit"; restart = "b" + this.hitSerial; break;
+      case "launch":
+        if (this.sf < 20) { key = "launch"; restart = "l" + this.hitSerial; } else key = "launchhold";
+        break;
+      case "down": key = "down"; break;
+      case "ko": key = "downko"; break;
+      case "getup": key = "getup"; break;
+      case "thrown":
+        // the thrower's paired clip, played in the thrower's place and frame
+        key = "throwv"; restart = "t" + this.hitSerial;
+        if (this.thrower) ch = this.thrower.ch;
+        break;
+      case "victory": key = "victory"; break;
+      case "waiting": key = this.cheering > 0 ? "cheer" : "waiting"; break;
     }
+    const clip = this.clipName(key, ch);
+    const c = CLIPS[clip];
+    return { clip, rate: (c ? c.r : 1) * speed, key: clip + restart };
   }
 
   // ---------------------------------------------------------------- defence queries
@@ -515,186 +540,102 @@ class Fighter {
     return false;
   }
 
-  // ---------------------------------------------------------------- animation
-  /** @returns {[string, number]} */
-  targetPose(out) {
-    const ch = this.ch, P = ch.poses, g = this.game;
-    let key = this.state, blend = 4;
-    switch (this.state) {
-      case "idle": case "intro": case "lobby": {
-        const b = Math.sin(this.idleT * (2 * Math.PI / (SIM_HZ * 1.5)));
-        copyPose(P.stance, out);
-        out[P_HY] += b * 0.9 * ch.legF;
-        out[P_FA0] += b * 2; out[P_BA0] -= b * 2;
-        if (this.state === "lobby" && this.lobbyReady) {
-          const pump = Math.max(0, Math.sin(this.idleT * 0.12));
-          out[P_FA0] = lerp(out[P_FA0], 165, pump * 0.8); out[P_FA1] = lerp(out[P_FA1], 30, pump * 0.8);
-        }
-        key = "idle";
-        break;
-      }
-      case "walk": {
-        const dir = Math.sign(this.vx) * this.facing;
-        this.walkPhase += (Math.abs(this.vx) * DT / 26) * Math.PI * (dir >= 0 ? 1 : -1);
-        const s = Math.sin(this.walkPhase), c = Math.cos(this.walkPhase);
-        const guard = dir < 0 && this.game.cfg.backBlocks !== false;
-        resolvePose({
-          hy: 44 - Math.abs(s) * 1.4, tl: dir > 0 ? 13 : guard ? 4 : 6, hd: guard ? 9 : 4,
-          fa: guard ? { x: 17, y: 12.5 + s * 0.6 } : { x: 19, y: 7 + s * 1.2 }, ba: guard ? { x: 14, y: 13.5 - s * 0.6 } : { x: 14, y: 8 - s * 1.2 },
-          fl: { x: 12 + 8 * s, y: 2 + 5 * Math.max(0, c) },
-          bl: { x: -14 - 8 * s, y: 2 + 5 * Math.max(0, -c) },
-        }, ch).forEach((v, i) => { out[i] = v; });
-        key = "walk";
-        break;
-      }
-      case "crouch": copyPose(P.crouch, out); blend = 3; break;
-      case "block": copyPose(P.block, out); blend = 2; break;
-      case "cblock": copyPose(P.cblock, out); blend = 2; break;
-      case "squat": copyPose(P.squat, out); blend = 2; break;
-      case "air": copyPose(this.vy > 150 ? P.airRise : P.air, out); key = this.vy > 150 ? "airRise" : "air"; blend = 5; break;
-      case "land": copyPose(P.land, out); blend = 2; break;
-      case "dash": copyPose(P.dashF, out); blend = 3; break;
-      case "backdash": copyPose(P.dashB, out); blend = 3; break;
-      case "attack": case "throw": {
-        const m = this.move;
-        if (!m) { copyPose(P.stance, out); break; }
-        sampleKeys(m.keys, this.mf, out, ch);
-        if (m.flip) {
-          const [a, b, per] = m.flip;
-          out[P_FLIP] = (this.mf >= a && this.mf <= b && Math.floor((this.mf - a) / per) % 2 === 1) ? 1 : 0;
-        }
-        key = "move:" + m.id + ":" + this.moveSerial; blend = 2;
-        break;
-      }
-      case "hitstun": {
-        const src = this.crouchHit ? P.hitCrouch : (this.hitLevel === "high" ? P.hitHigh : P.hitMid);
-        copyPose(src, out); key = "hit" + this.hitLevel + this.combo; blend = 2;
-        break;
-      }
-      case "blockstun": copyPose(this.blockLow ? P.cblock : P.block, out); key = this.blockLow ? "cblock" : "block"; blend = 2; break;
-      case "launch": {
-        const t = this.sf;
-        resolvePose(Object.assign({}, POSES.tumble, { rot: -clamp(t * 5.5, 0, 105) }), ch).forEach((v, i) => { out[i] = v; });
-        key = "launch"; blend = 3;
-        break;
-      }
-      case "down": copyPose(P.down, out); blend = 3; break;
-      case "ko": copyPose(P.downKO, out); blend = 5; break;
-      case "getup": {
-        const u = clamp(this.sf / 18, 0, 1);
-        if (u < 0.5) lerpPose(P.down, P.kneel, smooth01(u * 2), out);
-        else lerpPose(P.kneel, P.stance, smooth01(u * 2 - 1), out);
-        blend = 0;
-        break;
-      }
-      case "thrown": {
-        const rot = this.throwPelvis ? this.throwPelvis.rot : 0;
-        resolvePose(Object.assign({}, POSES.thrown, { rot }), ch).forEach((v, i) => { out[i] = v; });
-        blend = 2;
-        break;
-      }
-      case "victory": {
-        copyPose(P[this.victoryPose] || P.victoryBoxer, out);
-        out[P_HY] += Math.sin(this.idleT * 0.15) * 1.2 * (out[P_AUTO] ? 0 : 1);
-        blend = 8;
-        break;
-      }
-      case "defeat": copyPose(P.defeat, out); blend = 10; break;
-      case "waiting": {
-        const cheer = this.cheering > 0;
-        copyPose(cheer ? P.cheer : P.waiting, out);
-        if (cheer) out[P_FA0] += Math.sin(this.idleT * 0.3) * 14;
-        else out[P_HY] += Math.sin(this.idleT * 0.08) * 0.6;
-        key = cheer ? "cheer" : "waiting"; blend = 8;
-        break;
-      }
-      default: copyPose(P.stance, out);
-    }
-    return [key, blend];
-  }
-
+  // Advances nothing (the clock ticks in step); picks up clip changes and rebuilds the body.
   animate() {
-    if (this.hitstop > 0 && this.active) { this.buildRender(); return; }
-    const [key, blend] = this.targetPose(this.tmpPose);
-    if (key !== this.animKey) {
-      copyPose(this.pose, this.poseFrom);
-      this.blendT = 0; this.blendDur = this.animKey === "" ? 0 : blend; this.animKey = key;
+    const a = this.animState(), A = this.anim;
+    if (a.clip !== A.name || a.key !== A.key) {
+      A.name = a.clip; A.key = a.key; A.clip = CLIPS[a.clip] || null; A.t = 0;
     }
-    if (this.blendT < this.blendDur) {
-      this.blendT++;
-      lerpPose(this.poseFrom, this.tmpPose, smooth01(this.blendT / (this.blendDur + 1)), this.pose);
-      this.pose[P_FLIP] = this.tmpPose[P_FLIP];
-    } else {
-      copyPose(this.tmpPose, this.pose);
+    A.rate = a.rate;
+    // vanishing moves shrink the body away and back
+    const m = this.move;
+    this.vis = 1;
+    if (m && m.scale && (this.state === "attack")) {
+      const k = m.scale, f = this.mf;
+      if (f >= k[0][0] && f <= k[k.length - 1][0]) {
+        for (let i = 1; i < k.length; i++) if (f <= k[i][0]) {
+          const u = k[i][0] > k[i - 1][0] ? (f - k[i - 1][0]) / (k[i][0] - k[i - 1][0]) : 1;
+          this.vis = lerp(k[i - 1][1], k[i][1], smooth01(u));
+          break;
+        }
+      }
     }
     if (this.cheering > 0) this.cheering--;
     this.buildRender();
   }
 
-  // Skeleton -> stage-space render parts, hurt capsules and hitbox tips.
+  // Baked joints -> stage-space render parts, hurt capsules and hitbox tips.
   buildRender() {
-    const ch = this.ch, d = ch.dims, p = this.pose, sk = this.sk, P = sk.pts;
-    skeletonLocal(ch, p, sk, 0);
-    const explicitY = p[P_HY], autoY = -sk.minY;
-    let pelvisY = lerp(explicitY, autoY, clamp(p[P_AUTO], 0, 1));
-    let baseY = this.y;
-    let baseX = this.x + this.shakeX;
-    if (this.state === "thrown" && this.throwPelvis) { baseX = this.throwPelvis.x; baseY = 0; pelvisY = this.throwPelvis.y; }
-    // never sink into the floor
-    const low = sk.minY + pelvisY + baseY;
-    if (low < 0) pelvisY -= low;
-    const f = this.facing * (p[P_FLIP] > 0.5 ? -1 : 1);
-    const ox = baseX + f * p[P_HX], oy = baseY + pelvisY;
-    const W = (j) => P[j];
-    const wx = (j) => ox + f * W(j).x, wy = (j) => oy + W(j).y;
-    const sc = p[P_SC];
+    const ch = this.ch, d = ch.dims, sk = this.sk, P = sk.pts, A = this.anim;
+    let c = A.clip, t = A.t;
+    let facing = this.facing, baseX = this.x + this.shakeX, baseY = this.y;
+    const thrown = this.state === "thrown" && this.thrower;
+    if (thrown) { t = this.thrower.mf * (c ? c.r : 1); facing = this.thrower.facing; baseX = this.thrower.x; baseY = 0; }
+    if (!c) c = CLIPS[this.clipName("idle")] || null;
+    const raw = sk.raw;
+    if (c) sampleClip(c, t, raw);
+    const sc = ch.scale * this.vis;
+    for (let i = 0; i < JN; i++) { const q = P[JOINTS[i]]; q.x = raw[2 * i] * sc; q.y = raw[2 * i + 1] * sc; }
+    // lowest surface point; an airborne body is lifted so it never dips into the floor
+    const fr = d.fistR * this.vis, hr = d.headR * this.vis, footR = BLOCK_HALF_K * d.foot * this.vis + 0.2;
+    let minY = Math.min(P.fA.y, P.bA.y, P.fT.y, P.bT.y) - footR;
+    minY = Math.min(minY, P.H.y - hr, P.fF.y - fr, P.bF.y - fr, P.fK.y - 3, P.bK.y - 3, P.P.y - 6, P.N.y - 6, P.fE.y - 2, P.bE.y - 2);
+    sk.minY = minY;
+    this.lift = !thrown && baseY > 0 && baseY + minY < 0 ? -(baseY + minY) : 0;
+    const oy = baseY + this.lift;
+    const wx = (j) => baseX + facing * P[j].x, wy = (j) => oy + P[j].y;
     const body = this.color, low2 = shade(body, 0.78), acc = ch.accent;
-    const far = (c) => shade(c, 0.8);
+    const far = (cl) => shade(cl, 0.8);
     const dk = d.torso / 31;
-    const depthF = 12.5 * dk, depthL = 4.4 * dk;
+    // the lead limbs are on the far side of the body (the camera sees the fighter's rear side)
+    const depthF = -12.5 * dk, depthL = -4.4 * dk;
     const base = this.depthBase;
+    const hide = !this.onStage || this.vis < 0.06;
     const seg = (i, model, a, b, len, depth, color) => {
       const q = this.parts[i];
       q.model = model; q.x = wx(a); q.y = wy(a);
-      q.ang = Math.atan2(wy(b) - wy(a), wx(b) - wx(a)) / DEG;
-      q.len = len * sc; q.r = 0; q.depth = base + depth; q.color = color; q.hidden = !this.onStage || sc < 0.06;
+      const dx = wx(b) - q.x, dy = wy(b) - q.y;
+      q.ang = Math.atan2(dy, dx) / DEG;
+      q.len = Math.sqrt(dx * dx + dy * dy); q.r = 0;
+      q.w = (model === "block" ? BLOCK_HALF_K : LIMB_RADIUS_K) * len * this.vis;
+      q.depth = base + depth; q.color = color; q.hidden = hide;
     };
-    const ball = (i, j, r, depth, color, hide) => {
+    const ball = (i, j, r, depth, color) => {
       const q = this.parts[i];
-      q.model = "ball"; q.x = wx(j); q.y = wy(j); q.ang = 0; q.len = 0; q.r = r * sc;
-      q.depth = base + depth; q.color = color; q.hidden = hide || !this.onStage || sc < 0.06;
+      q.model = "ball"; q.x = wx(j); q.y = wy(j); q.ang = 0; q.len = 0; q.r = r * this.vis;
+      q.depth = base + depth; q.color = color; q.hidden = hide;
     };
     const L = ch.limb;
     seg(PART.TORSO, "block", "P", "N", d.torso, 0, body);
     ball(PART.HEAD, "H", d.headR, 0.5, acc);
-    seg(PART.B_UARM, L, "S", "bE", d.uarm, -depthF, far(body));
-    seg(PART.B_FARM, L, "bE", "bW", d.farm, -depthF, far(low2));
-    ball(PART.B_FIST, "bF", d.fistR, -depthF, far(acc));
-    seg(PART.F_UARM, L, "S", "fE", d.uarm, depthF, body);
-    seg(PART.F_FARM, L, "fE", "fW", d.farm, depthF, low2);
-    ball(PART.F_FIST, "fF", d.fistR, depthF, acc);
-    seg(PART.B_THIGH, L, "P", "bK", d.thigh, -depthL, far(body));
-    seg(PART.B_SHIN, L, "bK", "bA", d.shin, -depthL, far(low2));
-    seg(PART.B_FOOT, "block", "bA", "bT", d.foot, -depthL, far(acc));
-    seg(PART.F_THIGH, L, "P", "fK", d.thigh, depthL, body);
-    seg(PART.F_SHIN, L, "fK", "fA", d.shin, depthL, low2);
-    seg(PART.F_FOOT, "block", "fA", "fT", d.foot, depthL, acc);
-    const ex = ch.extras || [];
-    ball(PART.EXTRA0, "X0", ex[0] ? ex[0].r : 1, 0.3, acc, !ex[0]);
-    ball(PART.EXTRA1, "X1", ex[1] ? ex[1].r : 1, 0.3, acc, !ex[1]);
+    seg(PART.F_UARM, L, "S", "fE", d.uarm, depthF, far(body));
+    seg(PART.F_FARM, L, "fE", "fW", d.farm, depthF, far(low2));
+    ball(PART.F_FIST, "fF", d.fistR, depthF, far(acc));
+    seg(PART.B_UARM, L, "S", "bE", d.uarm, -depthF, body);
+    seg(PART.B_FARM, L, "bE", "bW", d.farm, -depthF, low2);
+    ball(PART.B_FIST, "bF", d.fistR, -depthF, acc);
+    seg(PART.F_THIGH, L, "P", "fK", d.thigh, depthL, far(body));
+    seg(PART.F_SHIN, L, "fK", "fA", d.shin, depthL, far(low2));
+    seg(PART.F_FOOT, "block", "fA", "fT", d.foot, depthL, far(acc));
+    seg(PART.B_THIGH, L, "P", "bK", d.thigh, -depthL, body);
+    seg(PART.B_SHIN, L, "bK", "bA", d.shin, -depthL, low2);
+    seg(PART.B_FOOT, "block", "bA", "bT", d.foot, -depthL, acc);
+    this.parts[PART.EXTRA0].hidden = true;
+    this.parts[PART.EXTRA1].hidden = true;
     // hurt capsules [ax, ay, bx, by, r]
-    const lr = (len) => limbRadius(ch, len) * sc + 1;
+    const v = this.vis;
+    const lr = (len) => limbRadius(ch, len) * v + 1;
     const H = this.hurt; H.length = 0;
     const cap = (a, b, r) => H.push([wx(a), wy(a), wx(b), wy(b), r]);
-    cap("P", "N", d.torso * BLOCK_HALF_K * sc + 1.5);
-    cap("H", "H", d.headR * sc + 1);
-    cap("S", "fE", lr(d.uarm)); cap("fE", "fW", lr(d.farm)); cap("fF", "fF", d.fistR * sc);
-    cap("S", "bE", lr(d.uarm)); cap("bE", "bW", lr(d.farm)); cap("bF", "bF", d.fistR * sc);
+    cap("P", "N", d.torso * BLOCK_HALF_K * v + 1.5);
+    cap("H", "H", d.headR * v + 1);
+    cap("S", "fE", lr(d.uarm)); cap("fE", "fW", lr(d.farm)); cap("fF", "fF", d.fistR * v);
+    cap("S", "bE", lr(d.uarm)); cap("bE", "bW", lr(d.farm)); cap("bF", "bF", d.fistR * v);
     cap("P", "fK", lr(d.thigh)); cap("fK", "fA", lr(d.shin)); cap("fA", "fT", lr(d.foot));
     cap("P", "bK", lr(d.thigh)); cap("bK", "bA", lr(d.shin)); cap("bA", "bT", lr(d.foot));
     // tips
     const T = this.tips;
-    const tip = (name, x, y) => { const t = T[name] || (T[name] = { x: 0, y: 0 }); t.x = x; t.y = y; };
+    const tip = (name, x, y) => { const tt = T[name] || (T[name] = { x: 0, y: 0 }); tt.x = x; tt.y = y; };
     tip("fF", wx("fF"), wy("fF")); tip("bF", wx("bF"), wy("bF"));
     tip("fT", lerp(wx("fA"), wx("fT"), TIP_FRACTION), lerp(wy("fA"), wy("fT"), TIP_FRACTION));
     tip("bT", lerp(wx("bA"), wx("bT"), TIP_FRACTION), lerp(wy("bA"), wy("bT"), TIP_FRACTION));

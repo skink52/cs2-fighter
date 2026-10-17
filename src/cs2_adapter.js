@@ -456,24 +456,30 @@ function renderFighter(seat) {
   if (!want) return;
   if (!b) { b = seatBody[seat] = takeBody(want); if (!b) return; }
   if (!live(b.rig) || !live(b.agent)) { seatBody[seat] = null; return; }
-  // vanishing moves (Pratfall) hide the body for a moment
-  if (f.pose[P_SC] < 0.3) { parkBody(b); return; }
-  const thrown = f.state === "thrown" && f.throwPelvis;
-  const x = thrown ? f.throwPelvis.x : f.x + f.shakeX;
-  const y = thrown ? f.throwPelvis.y : f.y;
+  // vanishing moves (Pratfall) shrink the body away for a moment
+  if (f.vis < 0.06) { parkBody(b); return; }
+  // a thrown fighter plays the thrower's paired clip from the thrower's spot
+  const T = f.state === "thrown" && f.thrower ? f.thrower : null;
+  const x = T ? T.x : f.x + f.shakeX;
+  const y = T ? 0 : f.y + f.lift;
+  const facing = T ? T.facing : f.facing;
   const pos = toWorld(x, y, f.background ? CONFIG.QUEUE_DEPTH : f.depthBase * CONFIG.FIGHTER_DEPTH);
-  const yaw = stage.yaw + (f.facing > 0 ? 0 : 180) + (CONFIG.BODY_YAW || 0);
+  const yaw = stage.yaw + (facing > 0 ? 0 : 180) + (CONFIG.BODY_YAW || 0);
   const moved = Math.abs(pos.x - b.x) + Math.abs(pos.y - b.y) + Math.abs(pos.z - b.z);
   if (b.parked || !(moved < 90) || b.yaw !== yaw) b.rig.Teleport({ position: pos, angles: { pitch: 0, yaw, roll: 0 }, velocity: ZERO });
   else if (moved > 0.02) move(b.rig, { position: pos, angles: { pitch: 0, yaw, roll: 0 } });
   b.x = pos.x; b.y = pos.y; b.z = pos.z; b.yaw = yaw; b.parked = false;
-  const scale = (stage.scale / SKELETON_UNITS) * f.ch.scale;
+  const scale = (stage.scale / SKELETON_UNITS) * f.ch.scale * f.vis;
   if (!(Math.abs(scale - b.scale) < 0.001)) { b.rig.SetModelScale(scale); b.scale = scale; }
-  // animation: start the clip when it (or its restart key) changes, then steer the speed
+  // animation: start the clip when it (or its restart key) changes, then steer the speed.
+  // Facing left plays the mirrored clip, so the same side of the body faces the camera.
   const a = f.animState();
-  if (a.clip !== b.clip || a.key !== b.key) {
-    fire(b, RIG_CLIPS[a.clip] && RIG_CLIPS[a.clip].loop ? "SetAnimationLooping" : "SetAnimationNotLooping", a.clip);
-    b.clip = a.clip; b.key = a.key; b.rate = NaN;
+  const clip = a.clip + (facing < 0 ? "_m" : "");
+  const key = a.key + (facing < 0 ? "_m" : "");
+  if (a.clip && (clip !== b.clip || key !== b.key)) {
+    const c = CLIPS[a.clip];
+    fire(b, c && c.loop ? "SetAnimationLooping" : "SetAnimationNotLooping", clip);
+    b.clip = clip; b.key = key; b.rate = NaN;
   }
   let rate = a.rate;
   if (f.hitstop > 0 && f.active) rate = 0;

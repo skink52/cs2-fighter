@@ -1,5 +1,5 @@
 // =====================================================================================
-//  PUPPET BRAWL core - part 1: constants, maths, roster, skeleton + pose system
+//  PUPPET BRAWL core - part 1: constants, maths, roster, baked animation clips
 //  Engine-agnostic. The CS2 script and the browser preview both run this same code.
 // =====================================================================================
 
@@ -141,7 +141,6 @@ const CHARACTERS = [
 ];
 // Standard proportions the poses are authored against.
 const STD_LEG = 49, STD_ARM = 31;
-const FIST_OFFSET = 0.85;   // fist centre past the wrist, in fist radii (a CS2 hand is long)
 for (const ch of CHARACTERS) {
   ch.dims = {};
   for (const k in BASE_DIMS) ch.dims[k] = BASE_DIMS[k] * ch.scale;
@@ -170,158 +169,58 @@ const PART = {
 };
 const PART_COUNT = 16;
 
-// ------------------------------------------------------------------ pose arrays ------
-// A resolved pose is a flat array so it can be blended cheaply.
-const P_HX = 0, P_HY = 1, P_TL = 2, P_HD = 3, P_ROT = 4, P_SC = 5,
-  P_FA0 = 6, P_FA1 = 7, P_BA0 = 8, P_BA1 = 9, P_FL0 = 10, P_FL1 = 11, P_BL0 = 12, P_BL1 = 13,
-  P_FF = 14, P_BF = 15, P_FLIP = 16, P_AUTO = 17, P_LEN = 18;
-const ANGLE_IDX = [P_FA0, P_BA0, P_FL0, P_BL0, P_FF, P_BF];
-
-function newPose() { const p = new Array(P_LEN).fill(0); p[P_SC] = 1; p[P_FF] = 90; p[P_BF] = 90; return p; }
-function copyPose(src, dst) { dst = dst || new Array(P_LEN); for (let i = 0; i < P_LEN; i++) dst[i] = src[i]; return dst; }
-function lerpPose(a, b, t, out) {
-  out = out || new Array(P_LEN);
-  for (let i = 0; i < P_LEN; i++) out[i] = a[i] + (b[i] - a[i]) * t;
-  for (const i of ANGLE_IDX) out[i] = a[i] + wrap180(b[i] - a[i]) * t;
+// ------------------------------------------------------------------ baked animation --
+// Every clip a fighter plays is built offline as 3D animation on the CS2 agent skeleton
+// (tools/anim) and baked into 2D joint tracks: the side view of the joints that carry hit
+// boxes and hurt boxes, in fighter units from the fighter's ground point, facing right. The
+// "f" limbs are the lead side (nearer the opponent), "b" the rear. The build stores the
+// tracks in ANIM_DATA; CLIPS holds them decoded.
+const JOINTS = ["P", "N", "H", "S", "fE", "fW", "fF", "bE", "bW", "bF", "fK", "fA", "fT", "bK", "bA", "bT"];
+const JN = JOINTS.length;
+const J = {};
+JOINTS.forEach((n, i) => { J[n] = i; });
+/** @type {Record<string, {name: string, n: number, loop: boolean, r: number, j: Float32Array, ev: any}>} */
+const CLIPS = {};
+/** @type {Record<string, Record<string, string>>} */
+const CLIP_SETS = {};
+const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+const B64_IDX = {};
+for (let i = 0; i < 64; i++) B64_IDX[B64[i]] = i;
+// two characters per value: tenths of a fighter unit, offset by 2048
+function decodeTrack(str) {
+  const n = str.length >> 1, out = new Float32Array(n);
+  for (let i = 0; i < n; i++) out[i] = (B64_IDX[str[2 * i]] * 64 + B64_IDX[str[2 * i + 1]] - 2048) / 10;
+  return out;
+}
+function loadAnimData(data) {
+  if (!data) return;
+  for (const name in data.clips) {
+    const c = data.clips[name];
+    CLIPS[name] = { name, n: c.n, loop: !!c.loop, r: c.r || 1, j: decodeTrack(c.j), ev: c.ev || null };
+  }
+  for (const id in data.sets) CLIP_SETS[id] = data.sets[id];
+}
+loadAnimData(ANIM_DATA);
+// joint positions of clip c at (fractional) frame t into out[JN * 2]
+function sampleClip(c, t, out) {
+  const n = c.n, s = JN * 2;
+  let i0, i1, u;
+  if (c.loop) {
+    t = ((t % n) + n) % n;
+    i0 = Math.floor(t); i1 = (i0 + 1) % n; u = t - i0;
+  } else {
+    t = clamp(t, 0, n - 1);
+    i0 = Math.floor(t); i1 = Math.min(n - 1, i0 + 1); u = t - i0;
+  }
+  const a = i0 * s, b = i1 * s, j = c.j;
+  for (let k = 0; k < s; k++) out[k] = j[a + k] + (j[b + k] - j[a + k]) * u;
   return out;
 }
 
-// Two-bone IK. Returns absolute angles of both bones (degrees, skeleton convention).
-// bend = +1 puts the middle joint on the forward side (knees), -1 below/behind (elbows).
-function ik2(px, py, tx, ty, l1, l2, bend) {
-  let dx = tx - px, dy = ty - py;
-  let d = Math.sqrt(dx * dx + dy * dy);
-  if (d < 1e-6) { dx = 0; dy = -1; d = 1e-6; }
-  const maxD = l1 + l2 - 0.02, minD = Math.abs(l1 - l2) + 0.5;
-  const dc = clamp(d, minD, maxD);
-  const phi = angleOf(dx, dy);
-  const cosA = clamp((l1 * l1 + dc * dc - l2 * l2) / (2 * l1 * dc), -1, 1);
-  const alpha = Math.acos(cosA) / DEG;
-  const a1 = phi + bend * alpha;
-  const kx = px + l1 * dX(a1), ky = py + l1 * dY(a1);
-  const ex = px + (dx / d) * dc, ey = py + (dy / d) * dc;
-  return [a1, angleOf(ex - kx, ey - ky)];
-}
-
-// Pose spec -> resolved array for one character.
-// Spec keys (all optional):
-//   hy  pelvis height (FU, scaled by leg length). Leave out for "auto": lowest point on the floor
-//   hx  pelvis forward offset, tl torso lean (+ forward), hd head tilt (+ chin down)
-//   rot whole-body rotation (+ = tumble forward), sc render scale (vanish effects), flip mirror
-//   fa/ba front/back arm:  [shoulderAngle, elbowBend]  or  {x, y} wrist target from the shoulder
-//   fl/bl front/back leg:  [hipAngle, kneeBend]        or  {x, y, r:'g'|'h'} ankle target
-//                          ('g' = from the fighter's ground point, 'h' = from the hip)
-//   ff/bf foot angle (absolute, 90 = flat pointing forward) or {rel:n} relative to the shin
-function resolvePose(spec, ch) {
-  const d = ch.dims, legF = ch.legF, armF = ch.armF;
-  const p = newPose();
-  p[P_HX] = (spec.hx || 0) * legF;
-  p[P_TL] = spec.tl || 0;
-  p[P_HD] = spec.hd || 0;
-  p[P_ROT] = spec.rot || 0;
-  p[P_SC] = spec.sc === undefined ? 1 : spec.sc;
-  p[P_FLIP] = spec.flip ? 1 : 0;
-  const auto = spec.hy === undefined || spec.hy === null;
-  p[P_AUTO] = auto ? 1 : 0;
-  const hy = auto ? 0 : spec.hy * legF;
-  p[P_HY] = hy;
-  const hx = p[P_HX];
-  const td = 180 - p[P_TL];
-  const sx = hx + d.torso * 0.86 * dX(td), sy = hy + d.torso * 0.86 * dY(td);
-  const arm = (s, out0, out1) => {
-    if (!s) return;
-    if (Array.isArray(s)) { p[out0] = s[0]; p[out1] = s[1]; return; }
-    const tx = sx + s.x * armF, ty = sy + s.y * armF;
-    const [a1, a2] = ik2(sx, sy, tx, ty, d.uarm, d.farm, -1);
-    p[out0] = a1; p[out1] = wrap180(a2 - a1);
-  };
-  const leg = (s, out0, out1) => {
-    if (!s) return;
-    if (Array.isArray(s)) { p[out0] = s[0]; p[out1] = s[1]; return; }
-    let tx, ty;
-    if (s.r === "h") { tx = hx + s.x * legF; ty = hy + s.y * legF; }
-    else { tx = s.x * legF; ty = s.y * legF; }
-    const [a1, a2] = ik2(hx, hy, tx, ty, d.thigh, d.shin, +1);
-    p[out0] = a1; p[out1] = wrap180(a1 - a2);
-  };
-  arm(spec.fa || [20, 60], P_FA0, P_FA1);
-  arm(spec.ba || [10, 60], P_BA0, P_BA1);
-  leg(spec.fl || [10, 10], P_FL0, P_FL1);
-  leg(spec.bl || [-10, 10], P_BL0, P_BL1);
-  const foot = (s, hip, knee) => {
-    if (s === undefined) return 90;
-    if (typeof s === "number") return s;
-    return hip - knee + (s.rel || 0);
-  };
-  p[P_FF] = foot(spec.ff, p[P_FL0], p[P_FL1]);
-  p[P_BF] = foot(spec.bf, p[P_BL0], p[P_BL1]);
-  if (auto) {
-    const tmp = makeSkeleton();
-    skeletonLocal(ch, p, tmp, 0);
-    p[P_HY] = -tmp.minY;
-  }
-  return p;
-}
-
-// ------------------------------------------------------------------ forward kinematics
-const JOINTS = ["P", "N", "H", "S", "fE", "fW", "fF", "bE", "bW", "bF", "fK", "fA", "fT", "bK", "bA", "bT", "X0", "X1"];
 function makeSkeleton() {
-  const s = { minY: 0, pts: {} };
+  const s = { minY: 0, pts: {}, raw: new Float32Array(JN * 2) };
   for (const j of JOINTS) s.pts[j] = { x: 0, y: 0 };
   return s;
-}
-
-// Fills skeleton points relative to the pelvis (rotation and scale applied, facing right).
-// pelvisY is added to y. Returns the skeleton; minY = lowest surface point (with radii).
-function skeletonLocal(ch, p, sk, pelvisY) {
-  const d = ch.dims, P = sk.pts;
-  const td = 180 - p[P_TL];
-  const set = (j, x, y) => { P[j].x = x; P[j].y = y; };
-  set("P", 0, 0);
-  set("N", d.torso * dX(td), d.torso * dY(td));
-  set("S", d.torso * 0.86 * dX(td), d.torso * 0.86 * dY(td));
-  const hdir = td - p[P_HD];
-  set("H", P.N.x + (d.neck + d.headR) * dX(hdir), P.N.y + (d.neck + d.headR) * dY(hdir));
-  const arm = (pre, a, e) => {
-    const E = P[pre + "E"], W = P[pre + "W"], F = P[pre + "F"];
-    E.x = P.S.x + d.uarm * dX(a); E.y = P.S.y + d.uarm * dY(a);
-    W.x = E.x + d.farm * dX(a + e); W.y = E.y + d.farm * dY(a + e);
-    F.x = W.x + d.fistR * FIST_OFFSET * dX(a + e); F.y = W.y + d.fistR * FIST_OFFSET * dY(a + e);
-  };
-  arm("f", p[P_FA0], p[P_FA1]);
-  arm("b", p[P_BA0], p[P_BA1]);
-  const leg = (pre, h, k, footA) => {
-    const K = P[pre + "K"], A = P[pre + "A"], T = P[pre + "T"];
-    K.x = d.thigh * dX(h); K.y = d.thigh * dY(h);
-    A.x = K.x + d.shin * dX(h - k); A.y = K.y + d.shin * dY(h - k);
-    T.x = A.x + d.foot * dX(footA); T.y = A.y + d.foot * dY(footA);
-  };
-  leg("f", p[P_FL0], p[P_FL1], p[P_FF]);
-  leg("b", p[P_BL0], p[P_BL1], p[P_BF]);
-  // extras ride on the head
-  const ex = ch.extras || [];
-  for (let i = 0; i < 2; i++) {
-    const X = P["X" + i];
-    if (!ex[i]) { X.x = P.H.x; X.y = P.H.y; continue; }
-    const up = hdir, fw = hdir - 90;
-    X.x = P.H.x + (ex[i].ox * dX(fw) + ex[i].oy * dX(up)) * d.headR;
-    X.y = P.H.y + (ex[i].ox * dY(fw) + ex[i].oy * dY(up)) * d.headR;
-  }
-  // whole-body rotation about the pelvis (+ = forward tumble = clockwise) and scale
-  const rot = p[P_ROT], sc = p[P_SC];
-  if (rot !== 0 || sc !== 1) {
-    const c = Math.cos(rot * DEG), s = Math.sin(rot * DEG);
-    for (const j of JOINTS) {
-      const q = P[j]; const x = q.x, y = q.y;
-      q.x = (x * c + y * s) * sc; q.y = (-x * s + y * c) * sc;
-    }
-  }
-  const fr = d.fistR * sc, hr = d.headR * sc, footR = BLOCK_HALF_K * d.foot * sc + 0.2;
-  let minY = Math.min(P.fA.y, P.bA.y, P.fT.y, P.bT.y) - footR;
-  minY = Math.min(minY, P.H.y - hr, P.fF.y - fr, P.bF.y - fr, P.fK.y - 3 * sc, P.bK.y - 3 * sc, P.P.y - 6 * sc, P.N.y - 6 * sc, P.fE.y - 2, P.bE.y - 2);
-  for (const j of JOINTS) P[j].y += pelvisY;
-  sk.minY = minY + pelvisY;
-  return sk;
 }
 
 function limbRadius(ch, len) {

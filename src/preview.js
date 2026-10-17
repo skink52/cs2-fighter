@@ -152,7 +152,7 @@
     const len = q.len * s;
     ctx.save(); ctx.translate(x, y); ctx.rotate(-q.ang * DEG);
     if (q.model === "block") {
-      const k = len / 16, r0 = 3.6 * k, r1 = 4.6 * k, c = Math.min(r0, r1) * 0.6;
+      const k = q.w ? (q.w * s) / 4.1 : len / 16, r0 = 3.6 * k, r1 = 4.6 * k, c = Math.min(r0, r1) * 0.6;
       const grd = ctx.createLinearGradient(0, -r1, 0, r1);
       grd.addColorStop(0, rgb(q.color, 1.2 * dim)); grd.addColorStop(1, rgb(q.color, 0.72 * dim));
       ctx.fillStyle = grd; ctx.beginPath();
@@ -161,7 +161,7 @@
       ctx.quadraticCurveTo(-c * 1.6, r0, -c * 1.6, r0 - c); ctx.lineTo(-c * 1.6, -r0 + c); ctx.quadraticCurveTo(-c * 1.6, -r0, -c * 0.6, -r0);
       ctx.fill();
     } else {
-      const r = Math.max(0.8, len * LIMB_RADIUS_K);
+      const r = Math.max(0.8, (q.w || q.len * LIMB_RADIUS_K) * s);
       ctx.lineCap = "round";
       ctx.strokeStyle = rgb(q.color, 0.74 * dim); ctx.lineWidth = r * 2;
       ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(len, 0); ctx.stroke();
@@ -293,18 +293,16 @@
   // ------------------------------------------------------------------ pose gallery
   function drawGallery(kind) {
     const cols = [];
+    // each column: a label and, per fighter, [clip key, frame]
     const add = (label, fn) => cols.push({ label, fn });
     if (kind === "base") {
-      for (const n of ["stance", "crouch", "block", "cblock", "air", "hitHigh", "hitMid", "down", "kneel", "dashF", "waiting"]) add(n, (ch) => ch.poses[n]);
-      add("victory", (ch) => ch.poses[ch.victory]);
+      for (const k of ["idle", "walkf", "crouch", "block", "cblock", "air", "hithigh", "hitmid", "down", "getup", "dashf", "waiting", "victory"]) add(k, () => [k, 0]);
     } else if (kind === "normals") {
       for (const id of ["jab", "straight", "uppercut", "kickMid", "longKick", "roundhouse", "sweep", "airPunch", "airKick", "throw"]) {
-        const m = MOVES[id];
-        const hitF = m.hits && m.hits.length ? m.hits[0].from : (m.release || 10);
-        add(m.name, (ch) => { const mv = ch.moves[id]; const p = newPose(); sampleKeys(mv.keys, Math.round(hitF * (ch.stats.frame || 1)), p, ch); return p; });
+        add(MOVES[id].name, (ch) => { const m = ch.moves[id]; return [id, m.hits && m.hits.length ? m.hits[0].from : (m.release || 10)]; });
       }
     } else {
-      for (let k = 0; k < 3; k++) for (const f of [0.3, 0.6]) add("special " + (k + 1) + " · " + Math.round(f * 100) + "%", (ch) => { const mv = ch.moves[ch.specials[k]]; const p = newPose(); sampleKeys(mv.keys, Math.round(mv.total * f), p, ch); return p; });
+      for (let k = 0; k < 3; k++) for (const u of [0.3, 0.6]) add("special " + (k + 1) + " · " + Math.round(u * 100) + "%", (ch) => { const m = ch.moves[ch.specials[k]]; return [m.id, Math.round(m.total * u)]; });
     }
     const top = 44, cellW = (W - 20) / cols.length, cellH = (H - top - 10) / CHARACTERS.length;
     ctx.fillStyle = "#1b1418"; ctx.fillRect(0, 0, W, H);
@@ -313,7 +311,9 @@
       cols.forEach((col, ci) => {
         const f = new Fighter(g, row);
         f.setCharacter(row); f.onStage = true; f.facing = 1; f.x = 0; f.y = 0; f.color = PLAYER_COLORS[row];
-        copyPose(col.fn(ch), f.pose);
+        const [key, fr] = col.fn(ch);
+        const name = f.clipName(key);
+        f.anim.name = name; f.anim.clip = CLIPS[name] || null; f.anim.t = fr * (f.anim.clip ? f.anim.clip.r : 1);
         f.buildRender();
         const cx = 10 + ci * cellW, cy = top + row * cellH;
         view = { cx: 0, cy: 48, scale: Math.min(cellW / 82, cellH / 118), ox: cx + cellW / 2, oy: cy + cellH * 0.5 };

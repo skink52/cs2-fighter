@@ -22,7 +22,9 @@ for (const [id, m] of Object.entries(AGENTS)) new PointTemplate("pb_tpl_" + id, 
 for (const k of ["proj_knot", "proj_cog", "proj_jball", "fx_ring", "fx_burst", "fx_orb"]) new PointTemplate("pb_tpl_" + k, "models/puppet_brawl/pb_" + k + ".vmdl", { x: 0, y: 0, z: -500 });
 for (const k of ["sparks", "zap", "arc", "streak", "firework", "confetti", "dust", "embers"]) new PointTemplate("pb_tpl_fx_" + k, "particle:" + k, { x: 0, y: 0, z: -500 });
 new Entity("pb_stage_text", "point_worldtext"); new Entity("pb_stage_sub", "point_worldtext");
-const CLIPS = JSON.parse(fs.readFileSync(path.join(here, "..", "dist", "rig_clips.json"), "utf8"));
+// every clip the rig model holds: the baked clips and their mirrored "_m" twins
+const CLIPS = {};
+for (const n of Object.keys(JSON.parse(fs.readFileSync(path.join(here, "..", "dist", "anim_data.json"), "utf8")).clips)) CLIPS[n] = CLIPS[n + "_m"] = true;
 const hud = new CustomHudLayout("pb_hud");
 for (const s of ["hit", "heavy", "block", "ko", "bell", "tick", "select", "win"]) new Entity("pb_snd_" + s, "point_soundevent");
 
@@ -82,10 +84,10 @@ for (let t = 0; t < 64 * 45; t++) {
 alice._held = 0; bob._held = 0;
 check(stats.moves - moves0 > 64 * 30, "rigs moved with Move(): " + (stats.moves - moves0));
 const played = new Set(animIn().map((i) => i.value));
-check(["jab", "kickMid", "walkf"].some((c) => played.has(c)) && played.size >= 6, "fight drove varied clips: " + [...played].join(","));
+check([...played].some((c) => /_(jab|kickMid|walkf)(_m)?$/.test(c)) && played.size >= 6, "fight drove varied clips: " + [...played].join(","));
+check([...played].some((c) => c.endsWith("_m")) && [...played].some((c) => !c.endsWith("_m")), "both facings played (mirrored clips when facing left)");
 {
-  const table = JSON.parse(fs.readFileSync(new URL("../dist/rig_clips.json", import.meta.url), "utf8"));
-  const missing = [...played].filter((c) => !table[c]);
+  const missing = [...played].filter((c) => !CLIPS[c]);
   check(!missing.length, "every clip played exists in the rig: " + (missing.join(",") || "ok"));
 }
 check(stats.inputs.some((i) => i.input === "SetPlaybackRate" && i.value === 0), "hitstop pauses the animation (rate 0)");

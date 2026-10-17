@@ -7,3 +7,5 @@ node_modules/
 test/tmp_script*.mjs
 test/tscheck/puppet_brawl.js
 test/hud_preview.html
+node_modules
+ref/core_node_old.mjs

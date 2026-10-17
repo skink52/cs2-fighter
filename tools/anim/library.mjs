@@ -8,8 +8,8 @@ import { readSMD } from "./smd.mjs";
 import { STANCES, buildIdle, buildWalk, cheat } from "./stances.mjs";
 
 export const FIGHTERS = ["timber", "brass", "pirouette", "motley"];
-export const STATE_KEYS = ["idle", "walkf", "walkb", "crouch", "block", "cblock", "squat", "air", "airrise", "land", "dashf", "dashb",
-  "hithigh", "hitmid", "hitcrouch", "launch", "launchhold", "down", "downko", "getup", "thrown", "victory", "lobbyready", "waiting", "cheer", "defeat"];
+export const STATE_KEYS = ["idle", "intro", "walkf", "walkb", "crouch", "block", "cblock", "blockhit", "cblockhit", "squat", "air", "airrise", "land", "dashf", "dashb",
+  "hithigh", "hitmid", "hitcrouch", "launch", "launchhold", "down", "downko", "getup", "throwv", "victory", "lobbyready", "waiting", "cheer", "defeat"];
 
 const OLD_DIR = process.env.PB_OLD_ANIMS || "/home/claude/fighter/dist/addon/models/puppet_brawl/rig/anims";
 function oldClip(name, file, loop) {
@@ -25,6 +25,8 @@ const NEW = {
   walkb: (id, core) => buildWalk(id, -1, core.walk(id, -1)),
 };
 const LOOPS = new Set(["idle", "walkf", "walkb", "crouch", "block", "cblock", "air", "airrise", "launchhold", "down", "downko", "victory", "lobbyready", "waiting", "cheer", "defeat"]);
+// keys with no clip of their own in the previous exporter, and what stands in for them
+const OLD_ALIAS = { intro: "idle", blockhit: "block", cblockhit: "cblock", throwv: "thrown" };
 
 export function buildLibrary(core) {
   const clips = [];
@@ -39,8 +41,12 @@ export function buildLibrary(core) {
       if (NEW[key]) { c = NEW[key](id, core); fresh = true; }
       else {
         // previous exporter's names: styled normals per fighter, specials by id, victory per fighter
-        const tries = key === "victory" ? [`victory_${id}`] : [`${key}_${id}`, key];
+        const k = OLD_ALIAS[key] || key;
+        const tries = k === "victory" ? [`victory_${id}`] : [`${k}_${id}`, k];
         for (const t of tries) { c = oldClip(name, t, LOOPS.has(key)); if (c) break; }
+        // the old clips ran at base timing (played at 1/frame-multiplier speed) and walks at
+        // 104 FU/s; the core and the rig now play every clip at its own rate
+        if (c && ch.moves[key]) c.rate = 1 / (ch.stats.frame || 1);
       }
       if (!c) { console.warn("no clip for", name); continue; }
       c.name = name;
