@@ -20,6 +20,7 @@ import { IDX } from "./rig.mjs";
 import { clonePose, Clip, turn } from "./clip.mjs";
 import { STANCES, buildStance, footHome, footPitch } from "./stances.mjs";
 import { movePelvis, rotatePelvis, bendSpine, twistSpine, lookAt, placeFoot, placeHand, BIND_ANKLE_Z, P } from "./pose.mjs";
+import { setHand } from "./posture.mjs";
 import { setWorld, setWorldRot, BIND } from "./rig.mjs";
 const CHEST_FWD = q.rotate(q.conj(BIND[IDX.spine_3].q), [1, 0, 0]);
 import { monotoneSlopes, hermiteMap } from "./clip.mjs";
@@ -138,9 +139,17 @@ export function applySpec(base, S, spec) {
     const elbow0 = S.elbows[s];
     const elbowC = v3.add(chest1.p, q.rotate(dq, v3.sub(elbow0, chest0.p)));
     const elbow = hs.elbow ? v3.lerp(elbowC, hs.elbow, clamp(hs.ew ?? 1, 0, 1)) : elbowC;
-    const aimDef = q.rotate(dq, s === "L" ? v3.norm([1, -0.15, 0.55]) : v3.norm([1, 0.25, 0.75]));
-    const aim = hs.aim ? v3.norm(v3.lerp(aimDef, v3.norm(hs.aim), clamp(hs.aw ?? 1, 0, 1))) : aimDef;
-    placeHand(W, s, target, { elbow, aim });
+    // the wrist stays straight with the stance's palm facing (carried by the chest); an aimed
+    // key turns the fist toward its aim on top of that
+    const palm = S.palms && S.palms[s] ? q.rotate(dq, S.palms[s]) : null;
+    setHand(W, s, target, { elbow, palm });
+    const aw = clamp(hs.aw ?? 1, 0, 1);
+    if (hs.aim && aw > 0.001) {
+      const hi = IDX["hand_" + s], q0 = W[hi].q.slice();
+      placeHand(W, s, target, { elbow, aim: v3.norm(hs.aim) });
+      setWorldRot(W, hi, q.slerp(q0, W[hi].q, aw));
+    }
+    const aim = hs.aim ? v3.norm(hs.aim) : null;
     const uw = clamp(hs.uw ?? 1, 0, 1);
     if (hs.up && uw > 0.001) {
       const hi = IDX["hand_" + s], q0 = W[hi].q.slice();

@@ -24,7 +24,7 @@ const every = +opt("every", 1);
 const size = opt("size", "320x300").split("x").map(Number);
 const viewName = opt("view", "game");
 const view = { ...VIEWS[viewName] };
-if (viewName === "game") { view.eye = [10, -118, 46]; view.at = [10, 0, 36]; view.fov = 46; }
+if (viewName === "game") { view.eye = [10, -150, 50]; view.at = [10, 0, 37]; view.fov = 40; }
 
 const sheets = [];
 for (const id of who) {

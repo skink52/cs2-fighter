@@ -3,66 +3,74 @@
 // camera), +Z up, origin = ground point between the feet.
 import { q, v3, DEG } from "./m3.mjs";
 import { IDX } from "./rig.mjs";
-import { mocapPose, clonePose, Clip, turn } from "./clip.mjs";
-import { normalisePoses } from "./gallery.mjs";
-import { movePelvis, rotatePelvis, bendSpine, twistSpine, lookAt, placeFoot, placeHand, BIND_ANKLE_Z, P } from "./pose.mjs";
+import { clonePose, Clip, turn } from "./clip.mjs";
+import { movePelvis, rotatePelvis, bendSpine, twistSpine, lookAt, placeFoot, BIND_ANKLE_Z, P } from "./pose.mjs";
+import { posture, setHand } from "./posture.mjs";
 
-// cheat: the whole body turns this far toward the camera (deg, negative = toward -Y)
+// Stances are built straight from the bind pose with posture.mjs: the hips open toward the
+// camera (negative yaw) so the chest, both arms and both legs read from the side view, the lead
+// foot points down the fight line and the rear foot turns out. Fields:
+//   pelvis [x, y, z], hipYaw / hipPitch / hipRoll (deg, the pelvis), twist / lean / side (deg, the
+//   chest relative to the pelvis), lead / rear feet { p: [x, y], yaw, heel }, hands / elbows /
+//   palms { L, R }, look, headRoll, fist (0 relaxed .. 1 fist). crouch and air override fields.
 export const STANCES = {
   timber: {   // street boxer: bladed, chin down, high guard, light on the balls of the feet
-    base: ["13_17", 36.0], cheat: -16,
-    pelvis: [0.5, 0.5, 37.6], hipYaw: -24, lean: 9, twist: -8, side: 0,
-    lead: { p: [11.5, 5.2], yaw: 12 }, rear: { p: [-12.5, -5.8], yaw: -42, heel: 9 },
-    hands: { L: [16.5, 3.5, 61.5], R: [8.5, -3.2, 63.5] }, elbows: { L: [6, 15, 44], R: [-2, -15, 46] },
-    look: [90, 2, 63], fist: 1,
-    idle: { frames: 48, bounce: 1.35, shift: 0.7, sway: 2.2, fists: 1.2, breathe: 0.6 },
-    air: { pelvis: [0, 0, 31], hipYaw: -16, lean: 6, twist: -4, lead: { p: [9, 5], z: 11, yaw: 20, pitch: -25, knee: [40, 10, 44] }, rear: { p: [-6, -5], z: 7, yaw: -10, pitch: -45, knee: [30, -8, 34] },
-      hands: { L: [15.0, 5.0, 58.0], R: [8.0, -4.0, 60.0] }, elbows: { L: [6, 16, 42], R: [-2, -16, 44] }, look: [90, 2, 58] },
-    crouch: { pelvis: [2.0, 0.5, 19.0], hipYaw: -18, lean: 38, twist: -6, lead: { p: [13.5, 6.0], yaw: 14 }, rear: { p: [-12.0, -6.5], yaw: -38, heel: 22 },
-      hands: { L: [19.0, 4.0, 40.5], R: [13.5, -3.0, 42.0] }, elbows: { L: [10, 15, 27], R: [4, -15, 28] }, look: [80, 2, 38] },
+    cheat: 0,
+    pelvis: [0, -1, 35], hipYaw: -50, hipPitch: 6, lean: 12, twist: 16, side: 0,
+    lead: { p: [17, 6], yaw: 5 }, rear: { p: [-16, -9], yaw: -60, heel: 14 },
+    hands: { L: [23, 3, 55], R: [15, -5, 57] }, elbows: { L: [10, 14, 32], R: [2, -18, 34] },
+    palms: { L: [0, -0.6, -0.8], R: [-0.1, 0.9, -0.3] },
+    look: [100, 0, 61], fist: 1,
+    idle: { frames: 48, bounce: 1.3, shift: 0.7, sway: 2.0, fists: 1.2, breathe: 0.6 },
+    air: { pelvis: [0, 0, 31], hipYaw: -40, hipPitch: 0, lean: 8, twist: 10, lead: { p: [10, 5], z: 13, yaw: 15, pitch: -25, knee: [40, 10, 44] }, rear: { p: [-7, -6], z: 9, yaw: -30, pitch: -45, knee: [30, -8, 34] },
+      hands: { L: [20, 4, 54], R: [13, -6, 56] }, elbows: { L: [8, 14, 34], R: [1, -18, 36] }, look: [100, 0, 58] },
+    crouch: { pelvis: [2, -1, 21], hipYaw: -45, hipPitch: 16, lean: 24, twist: 12, lead: { p: [19, 7], yaw: 8 }, rear: { p: [-15, -10], yaw: -55, heel: 28 },
+      hands: { L: [24, 3, 39], R: [17, -6, 41] }, elbows: { L: [13, 12, 26], R: [6, -16, 27] }, look: [100, 0, 38] },
   },
   brass: {    // riot heavy: wide, low, square, forearms up like a shield, flat-footed
-    base: ["13_17", 36.0], cheat: -20,
-    pelvis: [0, 0, 36.2], hipYaw: -14, lean: 6, twist: -4, side: 0,
-    lead: { p: [10.5, 7.4], yaw: 18 }, rear: { p: [-11.0, -8.0], yaw: -30, heel: 0 },
-    hands: { L: [15.0, 5.0, 58.5], R: [12.0, -5.5, 58.0] }, elbows: { L: [6, 18, 40], R: [4, -18, 40] },
-    look: [90, 0, 62], fist: 1,
+    cheat: 0,
+    pelvis: [0, -1, 34], hipYaw: -38, hipPitch: 5, lean: 10, twist: 8, side: 0,
+    lead: { p: [16, 9], yaw: 15 }, rear: { p: [-15, -11], yaw: -45, heel: 0 },
+    hands: { L: [20, 5, 56], R: [18, -7, 53] }, elbows: { L: [14, 16, 36], R: [10, -18, 33] },
+    palms: { L: [-0.3, -0.9, 0], R: [-0.3, 0.9, 0] },
+    look: [100, 0, 61], fist: 1,
     idle: { frames: 80, bounce: 0.55, shift: 0.9, sway: 1.2, fists: 0.6, breathe: 1.0 },
-    air: { pelvis: [0, 0, 31], hipYaw: -10, lean: 5, twist: -2, lead: { p: [8, 7], z: 10, yaw: 20, pitch: -20, knee: [40, 12, 42] }, rear: { p: [-6, -7], z: 7, yaw: -10, pitch: -40, knee: [30, -10, 32] },
-      hands: { L: [14.0, 6.0, 56.0], R: [11.0, -6.0, 55.5] }, elbows: { L: [6, 18, 40], R: [4, -18, 40] }, look: [90, 0, 57] },
-    crouch: { pelvis: [1.0, 0, 18.5], hipYaw: -12, lean: 34, twist: -3, lead: { p: [12.5, 8.4], yaw: 18 }, rear: { p: [-11.5, -8.6], yaw: -28, heel: 18 },
-      hands: { L: [18.0, 5.5, 39.5], R: [15.0, -5.0, 39.0] }, elbows: { L: [10, 18, 25], R: [8, -18, 25] }, look: [80, 0, 37] },
+    air: { pelvis: [0, 0, 31], hipYaw: -30, lean: 6, twist: 4, lead: { p: [9, 8], z: 12, yaw: 20, pitch: -20, knee: [40, 12, 42] }, rear: { p: [-7, -8], z: 9, yaw: -20, pitch: -40, knee: [30, -10, 32] },
+      hands: { L: [18, 6, 55], R: [16, -7, 52] }, elbows: { L: [12, 16, 36], R: [9, -18, 33] }, look: [100, 0, 57] },
+    crouch: { pelvis: [2, -1, 20.5], hipYaw: -34, hipPitch: 14, lean: 22, twist: 6, lead: { p: [18, 10], yaw: 15 }, rear: { p: [-15, -12], yaw: -40, heel: 20 },
+      hands: { L: [22, 5, 40], R: [20, -7, 37] }, elbows: { L: [15, 16, 25], R: [12, -17, 23] }, look: [100, 0, 37] },
   },
   pirouette: { // dancer-agent: tall, narrow, on the toes, hands loose and open, poised
-    base: ["13_17", 36.0], cheat: -22,
-    pelvis: [0.5, 0.2, 39.6], hipYaw: -30, lean: 3, twist: -12, side: 0,
-    lead: { p: [9.0, 3.6], yaw: 8 }, rear: { p: [-10.5, -4.2], yaw: -55, heel: 12 },
-    hands: { L: [17.5, 4.0, 57.0], R: [7.0, -6.5, 54.0] }, elbows: { L: [8, 16, 42], R: [-4, -16, 40] },
-    look: [90, 0, 64], fist: 0.45,
+    cheat: 0,
+    pelvis: [1, -1, 39], hipYaw: -42, hipPitch: 0, lean: 3, twist: 10, side: 0,
+    lead: { p: [14, 4], yaw: 10, heel: 18 }, rear: { p: [-13, -6], yaw: -65, heel: 22 },
+    hands: { L: [25, 6, 54], R: [8, -12, 48] }, elbows: { L: [14, 18, 44], R: [-4, -20, 40] },
+    palms: { L: [0, -0.3, -0.9], R: [0.2, 0.4, -0.9] },
+    look: [100, 0, 64], fist: 0.3,
     idle: { frames: 60, bounce: 0.9, shift: 0.5, sway: 3.0, fists: 1.6, breathe: 0.7 },
-    air: { pelvis: [0, 0, 32], hipYaw: -20, lean: 2, twist: -8, lead: { p: [10, 4], z: 12, yaw: 15, pitch: -35, knee: [40, 8, 46] }, rear: { p: [-7, -4], z: 7, yaw: -20, pitch: -55, knee: [30, -6, 34] },
-      hands: { L: [16.0, 5.0, 56.0], R: [6.0, -7.0, 53.0] }, elbows: { L: [8, 16, 42], R: [-4, -16, 40] }, look: [90, 0, 59] },
-    crouch: { pelvis: [1.5, 0.2, 19.5], hipYaw: -26, lean: 36, twist: -10, lead: { p: [12.0, 4.2], yaw: 10 }, rear: { p: [-11.5, -4.8], yaw: -52, heel: 26 },
-      hands: { L: [20.0, 4.5, 39.0], R: [11.0, -6.0, 36.5] }, elbows: { L: [11, 16, 27], R: [0, -16, 25] }, look: [80, 0, 38] },
+    air: { pelvis: [0, 0, 32], hipYaw: -30, lean: 2, twist: 8, lead: { p: [11, 4], z: 14, yaw: 15, pitch: -35, knee: [40, 8, 46] }, rear: { p: [-8, -5], z: 9, yaw: -30, pitch: -55, knee: [30, -6, 34] },
+      hands: { L: [22, 7, 54], R: [6, -13, 50] }, elbows: { L: [12, 18, 44], R: [-5, -20, 42] }, look: [100, 0, 59] },
+    crouch: { pelvis: [2, -1, 22], hipYaw: -40, hipPitch: 12, lean: 24, twist: 10, lead: { p: [17, 5], yaw: 10 }, rear: { p: [-13, -8], yaw: -60, heel: 30 },
+      hands: { L: [26, 6, 39], R: [12, -11, 34] }, elbows: { L: [16, 17, 28], R: [1, -19, 26] }, look: [100, 0, 39] },
   },
   motley: {   // masked trickster: low, loose, swaying, hands low and wide, head cocked
-    base: ["13_17", 36.0], cheat: -20,
-    pelvis: [-0.5, 0, 36.6], hipYaw: -20, lean: 12, twist: -6, side: 0,
-    lead: { p: [12.0, 6.5], yaw: 20 }, rear: { p: [-12.0, -7.0], yaw: -38, heel: 6 },
-    hands: { L: [16.0, 9.0, 52.0], R: [6.0, -10.0, 50.0] }, elbows: { L: [6, 20, 40], R: [-4, -20, 38] },
-    look: [90, 0, 60], fist: 0.7, headRoll: 9,
+    cheat: 0,
+    pelvis: [0, -1, 33], hipYaw: -45, hipPitch: 10, hipRoll: 4, lean: 16, twist: 14, side: -6,
+    lead: { p: [17, 8], yaw: 20 }, rear: { p: [-15, -10], yaw: -50, heel: 10 },
+    hands: { L: [24, 10, 46], R: [12, -14, 42] }, elbows: { L: [12, 22, 36], R: [0, -24, 36] },
+    palms: { L: [0.2, -0.4, -0.9], R: [0.3, 0.3, -0.9] },
+    look: [100, 0, 58], fist: 0.55, headRoll: 9,
     idle: { frames: 64, bounce: 1.1, shift: 1.2, sway: 4.0, fists: 2.4, breathe: 0.6 },
-    air: { pelvis: [0, 0, 30], hipYaw: -14, lean: 9, twist: -4, lead: { p: [9, 6], z: 11, yaw: 25, pitch: -25, knee: [40, 12, 42] }, rear: { p: [-6, -6], z: 7, yaw: -15, pitch: -45, knee: [30, -10, 32] },
-      hands: { L: [15.0, 9.0, 51.0], R: [6.0, -10.0, 49.0] }, elbows: { L: [6, 20, 38], R: [-4, -20, 36] }, look: [90, 0, 56] },
-    crouch: { pelvis: [1.0, 0, 18.5], hipYaw: -18, lean: 38, twist: -5, lead: { p: [13.5, 7.5], yaw: 22 }, rear: { p: [-12.5, -7.5], yaw: -36, heel: 20 },
-      hands: { L: [18.5, 9.0, 35.0], R: [10.0, -9.5, 34.0] }, elbows: { L: [10, 20, 23], R: [0, -20, 22] }, look: [80, 0, 36] },
+    air: { pelvis: [0, 0, 30], hipYaw: -35, lean: 10, twist: 8, lead: { p: [10, 7], z: 12, yaw: 25, pitch: -25, knee: [40, 12, 42] }, rear: { p: [-7, -8], z: 9, yaw: -25, pitch: -45, knee: [30, -10, 32] },
+      hands: { L: [21, 10, 47], R: [10, -14, 44] }, elbows: { L: [10, 22, 37], R: [-1, -24, 37] }, look: [100, 0, 55] },
+    crouch: { pelvis: [2, -1, 20], hipYaw: -42, hipPitch: 16, hipRoll: 3, lean: 22, twist: 12, side: -4, lead: { p: [19, 9], yaw: 22 }, rear: { p: [-15, -11], yaw: -48, heel: 24 },
+      hands: { L: [26, 10, 33], R: [14, -14, 30] }, elbows: { L: [15, 21, 25], R: [3, -23, 24] }, look: [100, 0, 36] },
   },
 };
 
 // where a stance puts each ankle, and the foot's pitch (a raised heel stands on the ball)
 export function footHome(S, s) {
   const st = s === "L" ? S.lead : S.rear;
-  // a raised heel pivots the foot on its ball, which lifts the ankle
   const a = (st.heel || 0) * DEG;
   return [st.p[0], st.p[1], st.z ?? (a ? 1.29 + 5.4 * Math.sin(a) + 3.04 * Math.cos(a) : BIND_ANKLE_Z)];
 }
@@ -71,43 +79,31 @@ export function footPitch(S, s) {
   return st.pitch ?? -(st.heel || 0);
 }
 
-// the stance pose (no idle motion), facing +X before the camera cheat is applied
+// the posture spec of a stance (with optional overrides)
+export function stanceSpec(S) {
+  const foot = (st) => ({ p: st.p, z: st.z, yaw: st.yaw || 0, heel: st.heel || 0, pitch: st.pitch, knee: st.knee || null });
+  return {
+    pelvis: { p: S.pelvis, yaw: S.hipYaw || 0, pitch: S.hipPitch || 0, roll: S.hipRoll || 0 },
+    chest: { yaw: S.twist || 0, pitch: S.lean || 0, side: S.side || 0 },
+    feet: { L: foot(S.lead), R: foot(S.rear) },
+    hands: { L: { p: S.hands.L, elbow: S.elbows.L, palm: (S.palms || {}).L }, R: { p: S.hands.R, elbow: S.elbows.R, palm: (S.palms || {}).R } },
+    look: S.look, headRoll: S.headRoll || 0,
+  };
+}
+// the stance pose (no idle motion), facing +X, already open to the camera
 export function buildStance(id, mods = {}) {
   const S = { ...STANCES[id], ...mods };
-  let W = normalisePoses([mocapPose(S.base[0], S.base[1])], 0, "gaze")[0];
-  W = clonePose(W);
-  // hips: square to the opponent first, then turned for the stance
-  const pel = W[IDX.pelvis];
-  movePelvis(W, v3.sub(S.pelvis, pel.p), { keepFeet: false });
-  // remove the mocap's own hip yaw/tilt: align the hip line with +Y, then apply ours
-  const hipL = v3.sub(P(W, "leg_upper_L"), P(W, "leg_upper_R"));
-  const yaw0 = Math.atan2(-hipL[0], hipL[1]);
-  rotatePelvis(W, [0, 0, 1], -yaw0 + S.hipYaw * DEG, { keepFeet: false });
-  // spine: straighten to vertical-ish, then lean forward and twist
-  const sp = v3.norm(v3.sub(P(W, "neck_0"), P(W, "pelvis")));
-  const fix = q.between(sp, [0, 0, 1]);
-  const ax = v3.len([fix[0], fix[1], fix[2]]) > 1e-6 ? v3.norm([fix[0], fix[1], fix[2]]) : [0, 1, 0];
-  bendSpine(W, ax, q.angle(fix), [0.25, 0.25, 0.25, 0.25]);
-  twistSpine(W, (-S.hipYaw * 0.55 + S.twist) * DEG);   // chest turns back toward the front
-  bendSpine(W, [0, 1, 0], S.lean * DEG);
-  // feet
-  placeFoot(W, "L", footHome(S, "L"), S.lead.yaw, { pitch: footPitch(S, "L"), pole: S.lead.knee || null });
-  placeFoot(W, "R", footHome(S, "R"), S.rear.yaw, { pitch: footPitch(S, "R"), pole: S.rear.knee || null });
-  // hands
-  placeHand(W, "L", S.hands.L, { elbow: S.elbows.L, aim: v3.norm([1, -0.15, 0.55]) });
-  placeHand(W, "R", S.hands.R, { elbow: S.elbows.R, aim: v3.norm([1, 0.25, 0.75]) });
-  lookAt(W, S.look, { roll: S.headRoll || 0 });
-  return W;
+  return posture(stanceSpec(S));
 }
 
 // the crouching guard: the stance with the crouch overrides
-export function crouchStance(id) { const S = STANCES[id]; return { ...S, ...S.crouch, fist: S.fist, headRoll: S.headRoll, cheat: S.cheat }; }
-export function buildCrouch(id) { return buildStance(id, STANCES[id].crouch); }
-export function airStance(id) { const S = STANCES[id]; return { ...S, ...S.air, fist: S.fist, headRoll: S.headRoll, cheat: S.cheat }; }
-export function buildAir(id) { return buildStance(id, STANCES[id].air); }
+export function crouchStance(id) { const S = STANCES[id]; return { ...S, ...S.crouch, fist: S.fist, headRoll: S.headRoll, cheat: S.cheat, palms: S.palms }; }
+export function buildCrouch(id) { return posture(stanceSpec(crouchStance(id))); }
+export function airStance(id) { const S = STANCES[id]; return { ...S, ...S.air, fist: S.fist, headRoll: S.headRoll, cheat: S.cheat, palms: S.palms }; }
+export function buildAir(id) { return posture(stanceSpec(airStance(id))); }
 
-// world pose with the camera cheat applied
-export const cheat = (id, W) => turn(W, STANCES[id].cheat);
+// world pose with the camera cheat applied (the stances are built open, so this is 0 now)
+export const cheat = (id, W) => (STANCES[id].cheat ? turn(W, STANCES[id].cheat) : W);
 
 // Idle loop: the stance with a bounce, weight shift, lagging chest and fists, steady eyes.
 export function buildIdle(id, { name = id + "_idle" } = {}) {
@@ -129,7 +125,7 @@ export function buildIdle(id, { name = id + "_idle" } = {}) {
       const h = S.hands[s];
       const ph = s === "L" ? 0 : 0.9;
       const off = [I.fists * 0.45 * Math.cos(w - 1.2 + ph) + dx * 0.6, 0, chestDz + I.fists * 0.6 * Math.sin(w - 1.2 + ph)];
-      placeHand(W, s, v3.add(h, off), { elbow: S.elbows[s], aim: s === "L" ? v3.norm([1, -0.15, 0.55]) : v3.norm([1, 0.25, 0.75]) });
+      setHand(W, s, v3.add(h, off), { elbow: S.elbows[s], palm: S.palms[s] });
     }
     lookAt(W, v3.add(S.look, [0, 0, dz * 0.5]), { roll: S.headRoll || 0 });
     poses.push(W);
@@ -188,11 +184,12 @@ export function buildWalk(id, dir, speedFU, { name = `${id}_walk${dir > 0 ? "f" 
       const h = S.hands[s];
       const bobH = bob * 0.6 + 0.4 * Math.sin(u * Math.PI * 4 + (s === "L" ? 0 : 1));
       if (dir > 0) {
-        placeHand(W, s, v3.add(h, [0.6 * Math.sin(u * Math.PI * 2 + (s === "L" ? 0 : Math.PI)), 0, bobH]), { elbow: S.elbows[s], aim: s === "L" ? v3.norm([1, -0.15, 0.55]) : v3.norm([1, 0.25, 0.75]) });
+        setHand(W, s, v3.add(h, [0.6 * Math.sin(u * Math.PI * 2 + (s === "L" ? 0 : Math.PI)), 0, bobH]), { elbow: S.elbows[s], palm: S.palms[s] });
       } else {
-        const hz = S.hands.L[2] + 1.5;
-        const tgt = s === "L" ? [13.5, 4.0, hz] : [12.5, -2.0, hz + 0.5];
-        placeHand(W, s, v3.add(tgt, [0, 0, bobH]), { elbow: s === "L" ? [11, 11, hz - 18] : [9, -9, hz - 18], aim: s === "L" ? v3.norm([0.25, -0.2, 1]) : v3.norm([0.25, 0.2, 1]) });
+        // walking back the guard closes up: both fists come in toward the chin
+        const g = S.hands[s];
+        const tgt = s === "L" ? [g[0] - 5, g[1] - 1, g[2] + 3] : [g[0] - 1, g[1] + 1, g[2] + 2];
+        setHand(W, s, v3.add(tgt, [0, 0, bobH]), { elbow: S.elbows[s], palm: S.palms[s] });
       }
     }
     lookAt(W, S.look, { roll: S.headRoll || 0 });

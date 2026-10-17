@@ -6,7 +6,8 @@ import { SK, IDX, N, fk, toLocals, mirrorPose, setWorldRot } from "./rig.mjs";
 import { loadBVH } from "./bvh.mjs";
 import { makeRetargeter } from "./retarget.mjs";
 import { normalisePoses, gazeDir, chestDir } from "./gallery.mjs";
-import { ik2, LEG, ARM, spreadTwist, curlFingers } from "./post.mjs";
+import { ik2, LEG, ARM, spreadTwist } from "./post.mjs";
+import { shapeHand } from "./hands.mjs";
 
 export const FPS = 64;
 export const BVH_DIR = process.env.PB_BVH_DIR || "/tmp/claude-0/bvh";
@@ -175,7 +176,7 @@ export class Clip {
   finish() {
     this.poses = this.poses.map((W, f) => {
       const fist = typeof this.fist === "function" ? this.fist(f, this) : this.fist;
-      curlFingers(W, "L", fist.L); curlFingers(W, "R", fist.R);
+      for (const s of ["L", "R"]) shapeHand(W, s, handShape(fist[s]));
       spreadTwist(W);
       return W;
     });
@@ -184,6 +185,12 @@ export class Clip {
 }
 
 export const SK_ANKLE_Z = 4.33;
+// fist amount (0 relaxed .. 1 fist) or a hands.mjs shape name -> shape
+export function handShape(v) {
+  if (typeof v === "string" || Array.isArray(v)) return v;
+  const t = Math.max(0, Math.min(1, v ?? 1));
+  return ["relaxed", "fist", t];
+}
 
 // rotate a pose about Z (degrees) around the origin
 export function turn(W, deg) {

@@ -51,6 +51,7 @@ XML = f"""<root>
 		<include src="file://{{resources}}/styles/custom_game/puppet_brawl.css" />
 	</styles>
 
+	<Panel class="PBRoot" hittest="false">
 	<Panel id="pb_game" class="Screen stHidden" hittest="false">
 {card(1, "Left")}
 {card(2, "Right")}
@@ -98,6 +99,7 @@ XML = f"""<root>
 			<Label id="pb_joinhint_text" class="JoinHintText" text="{{s:t}}" />
 		</Panel>
 	</Panel>
+	</Panel>
 </root>
 """
 
@@ -107,6 +109,7 @@ CSS = """/* Puppet Brawl HUD - driven by scripts/puppet_brawl.js through custom_
    Back-alley arcade: hard-edged charcoal plates, heavy black outlines, fire health bars,
    an amber-framed clock and big slanted callouts. */
 
+.PBRoot { width: 100%; height: 100%; }
 .Screen {
 	width: 100%; height: 1080px;
 	font-family: Stratum2;
