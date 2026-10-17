@@ -106,3 +106,60 @@ export function placeHand(W, s, p, { elbow = null, aim = null, upHint = null } =
   }
 }
 export const P = (W, n) => W[IDX[n]].p;
+
+// ------------------------------------------------------------------ ankles that follow the shin
+// The knee's hinge axis and the foot's "neutral" direction (square to the shin, toward where the
+// knee points). hint = a direction to use when the leg is straight.
+function shinFrame(W, s, hint) {
+  const hip = W[IDX["leg_upper_" + s]].p, knee = W[IDX["leg_lower_" + s]].p, ank = W[IDX["ankle_" + s]].p;
+  const down = v3.norm(v3.sub(ank, knee));
+  const bulge = v3.sub(knee, v3.mul(v3.add(hip, ank), 0.5));
+  let fwd = v3.perp(bulge, down);
+  const h = hint ? v3.perp(hint, down) : null;
+  if (v3.len(fwd) < 0.8 && h && v3.len(h) > 1e-3) fwd = v3.add(v3.mul(v3.norm(fwd.every((x) => x === 0) ? h : fwd), v3.len(fwd) / 0.8), v3.mul(v3.norm(h), 1 - v3.len(fwd) / 0.8));
+  if (v3.len(fwd) < 1e-4) fwd = h && v3.len(h) > 1e-4 ? h : v3.perp([1, 0, 0], down);
+  fwd = v3.norm(fwd);
+  return { down, fwd, axis: v3.norm(v3.cross(fwd, down)) };
+}
+// foot set on the shin: plantar = degrees of pointing the toes (+) or pulling them up (-),
+// roll = degrees about the foot's long axis.
+export function footOnShin(W, s, plantar = 0, { hint = null, roll = 0 } = {}) {
+  const F = shinFrame(W, s, hint);
+  const a = plantar * DEG;
+  const fwd = v3.add(v3.mul(F.fwd, Math.cos(a)), v3.mul(F.down, Math.sin(a)));
+  let up = v3.add(v3.mul(F.down, -Math.cos(a)), v3.mul(F.fwd, Math.sin(a)));
+  if (roll) up = q.rotate(q.axisAngle(fwd, roll * DEG), up);
+  const A = basisQ(FOOT_FWD[s], FOOT_UP[s]), B = basisQ(fwd, up);
+  setWorldRot(W, IDX["ankle_" + s], q.norm(q.mul(B, q.conj(A))));
+}
+// how the foot sits on the shin now: plantar (deg, + toes pointed), roll (deg), yaw (deg, the toe
+// turned off the knee's direction)
+export function footAngles(W, s) {
+  const F = shinFrame(W, s, null);
+  const r = W[IDX["ankle_" + s]].q;
+  const fwd = q.rotate(r, FOOT_FWD[s]), up = q.rotate(r, FOOT_UP[s]);
+  const plantar = Math.atan2(v3.dot(fwd, F.down), v3.dot(fwd, F.fwd)) / DEG;
+  const yaw = Math.asin(clamp(v3.dot(fwd, F.axis), -1, 1)) / DEG;
+  const sideUp = v3.dot(up, F.axis);
+  return { plantar, yaw, roll: Math.asin(clamp(sideUp, -1, 1)) / DEG, F };
+}
+// keep every ankle inside a natural range (toes pulled up 25, pointed 60, turned 25, rolled 25)
+export const ANKLE_LIMIT = { up: 25, down: 60, yaw: 25, roll: 25 };
+export function limitAnkles(W, lim = ANKLE_LIMIT) {
+  for (const s of ["L", "R"]) {
+    // a foot standing on the floor stays flat; only feet in the air are held to the range
+    if (Math.min(W[IDX["ankle_" + s]].p[2], W[IDX["ball_" + s]].p[2] + 2) < 6) continue;
+    const a = footAngles(W, s);
+    const p = clamp(a.plantar, -lim.up, lim.down), y = clamp(a.yaw, -lim.yaw, lim.yaw), r = clamp(a.roll, -lim.roll, lim.roll);
+    if (Math.abs(p - a.plantar) < 0.5 && Math.abs(y - a.yaw) < 0.5 && Math.abs(r - a.roll) < 0.5) continue;
+    const F = a.F;
+    const pa = p * DEG, ya = y * DEG;
+    let fwd = v3.add(v3.mul(F.fwd, Math.cos(pa)), v3.mul(F.down, Math.sin(pa)));
+    fwd = v3.norm(v3.add(v3.mul(fwd, Math.cos(ya)), v3.mul(F.axis, Math.sin(ya))));
+    let up = v3.norm(v3.perp(v3.add(v3.mul(F.down, -Math.cos(pa)), v3.mul(F.fwd, Math.sin(pa))), fwd));
+    up = q.rotate(q.axisAngle(fwd, -r * DEG * Math.sign(v3.dot(v3.cross(fwd, up), F.axis) || 1)), up);
+    const A = basisQ(FOOT_FWD[s], FOOT_UP[s]), B = basisQ(fwd, up);
+    setWorldRot(W, IDX["ankle_" + s], q.norm(q.mul(B, q.conj(A))));
+  }
+  return W;
+}

@@ -9,7 +9,7 @@
 //   shape:  { L, R } hand shapes for hands.mjs
 import { q, v3, DEG } from "./m3.mjs";
 import { IDX, BIND, bindPose, setWorld, setWorldRot } from "./rig.mjs";
-import { bendSpine, twistSpine, lookAt, placeFoot, BIND_ANKLE_Z } from "./pose.mjs";
+import { bendSpine, twistSpine, lookAt, placeFoot, footOnShin, BIND_ANKLE_Z } from "./pose.mjs";
 import { ik2, ARM } from "./post.mjs";
 import { shapeHand } from "./hands.mjs";
 
@@ -60,7 +60,9 @@ export function posture(P) {
   const pel = P.pelvis || {};
   // pelvis place and turn (everything below and above follows)
   setWorld(W, pi, { q: W[pi].q, p: pel.p ? pel.p.slice() : W[pi].p });
-  const rp = q.mul(q.axisAngle([0, 0, 1], (pel.yaw || 0) * DEG), q.mul(q.axisAngle([0, 1, 0], (pel.pitch || 0) * DEG), q.axisAngle([1, 0, 0], (pel.roll || 0) * DEG)));
+  let rp = q.mul(q.axisAngle([0, 1, 0], (pel.pitch || 0) * DEG), q.axisAngle([1, 0, 0], (pel.roll || 0) * DEG));
+  if (pel.spin) rp = q.mul(q.axisAngle([1, 0, 0], pel.spin * DEG), rp);   // about the fight line (lying, tumbling)
+  rp = q.mul(q.axisAngle([0, 0, 1], (pel.yaw || 0) * DEG), rp);
   setWorldRot(W, pi, q.mul(rp, W[pi].q));
   // spine
   const ch = P.chest || {};
@@ -75,6 +77,8 @@ export function posture(P) {
     const a = heel * DEG;
     const z = f.z ?? (a ? 1.29 + 5.4 * Math.sin(a) + 3.04 * Math.cos(a) : BIND_ANKLE_Z);
     placeFoot(W, s, [f.p[0], f.p[1], z], f.yaw || 0, { pitch: f.pitch ?? -heel, roll: f.roll || 0, pole: f.knee || null });
+    // rel: the foot set on the shin instead of flat (degrees pointed, + = toes pointed)
+    if (f.rel != null) footOnShin(W, s, f.rel, { hint: [Math.cos((f.yaw || 0) * DEG), Math.sin((f.yaw || 0) * DEG), 0], roll: f.roll || 0 });
   }
   // arms
   for (const s of ["L", "R"]) {

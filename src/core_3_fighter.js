@@ -4,10 +4,14 @@
 
 const GRAVITY = 2000;          // FU/s^2
 const LAUNCH_GRAVITY = 1850;
+const AIR_TIMEOUT = 150;     // frames (about 2.3 s) before a body in the air is forced down
 const NEUTRAL = new Set(["idle", "walk", "crouch", "block", "cblock"]);
 const TURNABLE = new Set(["idle", "walk", "crouch", "block", "cblock", "land", "intro", "lobby"]);
 const MAX_JUGGLE = 3;
 const BUFFER = 5;              // frames a button press stays buffered
+// The BREAK meter: fills over time and when hit. Punch + kick together spends it:
+// a full meter breaks a combo (while being hit or knocked into the air), half a meter air-dodges.
+const BREAK = { start: 40, perSec: 7, perDmg: 1.2, burst: 100, dodge: 50, together: 3 };
 const TIP_FRACTION = 0.75;     // toe hitbox sits 75% of the way from ankle to toe
 
 class Fighter {
@@ -31,6 +35,7 @@ class Fighter {
     this.moveHit = false; this.moveBlocked = false; this.contactFrame = -1;
     this.combo = 0; this.comboDmg = 0; this.juggle = 0; this.hitLevel = "high"; this.crouchHit = false;
     this.blockLow = false; this.ko = false; this.kdOnLand = false;
+    this.brk = BREAK.start; this.airDodged = false; this.dodgeDir = -1; this.airT = 0; this.kickV = 0;
     this.held = 0; this.prevHeld = 0; this.pendingPress = 0;
     this.taps = []; this.buf = {};
     // animation clock: the clip playing, its restart key and the frame it is on
@@ -142,7 +147,7 @@ class Fighter {
 
   // ---------------------------------------------------------------- state control
   setState(s) { if (this.state !== s) { this.state = s; this.sf = 0; } }
-  get airborne() { return this.y > 0.01 || this.vy > 0.01; }
+  get airborne() { return this.y > 0 || this.vy > 0; }
   get alive() { return !this.ko; }
 
   resetForRound(x, facing) {
@@ -154,6 +159,7 @@ class Fighter {
     this.combo = 0; this.comboDmg = 0; this.juggle = 0; this.kdOnLand = false;
     this.thrower = null; this.victim = null; this.throwPelvis = null;
     this.landLag = 0; this.shakeX = 0; this.background = false; this.kickV = 0;
+    this.brk = BREAK.start; this.airDodged = false; this.airT = 0;
     this.clearInput();
     this.anim.name = ""; this.vis = 1;
   }
@@ -189,8 +195,43 @@ class Fighter {
     this.vy = st.jumpVy;
     this.vx = this.jumpDir * this.facing * st.jumpVx;
     this.y = 0.1;
-    this.airAttackUsed = false;
+    this.airAttackUsed = false; this.airDodged = false;
     this.setState("air");
+  }
+
+  // ---------------------------------------------------------------- BREAK meter
+  breakPressed() { return this.hasPress(IN.PUNCH, BREAK.together) && this.hasPress(IN.KICK, BREAK.together); }
+  // combo break while being hit or juggled; air dodge out of an ordinary jump
+  tryBreak() {
+    const g = this.game, s = this.state;
+    if ((s === "hitstun" || s === "launch") && this.brk >= BREAK.burst && !this.thrower) {
+      this.consume(IN.PUNCH); this.consume(IN.KICK);
+      this.brk -= BREAK.burst;
+      this.hitstop = 0; this.stun = 0; this.shakeX = 0;
+      this.combo = 0; this.comboDmg = 0; this.juggle = 0; this.kdOnLand = false;
+      this.invuln = 34; this.throwInvuln = 34;
+      this.hitSerial++;
+      this.setState("burst");
+      this.vx = -this.facing * 40;
+      if (this.airborne) this.vy = Math.max(this.vy, 260);
+      g.onBreak(this);
+      return true;
+    }
+    if (s === "air" && !this.airDodged && this.brk >= BREAK.dodge) {
+      this.consume(IN.PUNCH); this.consume(IN.KICK);
+      this.brk -= BREAK.dodge;
+      this.airDodged = true;
+      this.dodgeDir = this.fwd() ? 1 : -1;
+      this.hitSerial++;
+      this.setState("airdodge");
+      this.vx = this.dodgeDir * this.facing * 380;
+      this.vy = Math.max(this.vy * 0.3, 150);
+      this.invuln = 14;
+      g.sound("dash");
+      g.fx("dust", { x: this.x, y: this.y + 30, small: true });
+      return true;
+    }
+    return false;
   }
 
   // ---------------------------------------------------------------- per-frame update
@@ -198,6 +239,10 @@ class Fighter {
     const g = this.game;
     this.readInput();
     if (!this.active) { this.sf++; this.idleT++; this.anim.t += this.anim.rate; return; }
+    if (g.phase === "fight" && !this.ko) {
+      if (this.hitstop <= 0) this.brk = Math.min(100, (this.brk || 0) + BREAK.perSec / SIM_HZ);
+      if (this.breakPressed() && this.tryBreak()) return;
+    }
     if (this.hitstop > 0) {
       this.hitstop--;
       // the one who got hit shudders while the action is frozen
@@ -224,10 +269,23 @@ class Fighter {
         if (this.sf >= 3) this.takeoff();
         break;
       case "air":
+        // an air attack waits a couple of frames for the other button (punch + kick = air dodge)
         if (!locked && !this.airAttackUsed) {
-          if (this.hasPress(IN.PUNCH)) { this.consume(IN.PUNCH); this.airAttackUsed = true; this.startMove("airPunch"); }
-          else if (this.hasPress(IN.KICK)) { this.consume(IN.KICK); this.airAttackUsed = true; this.startMove("airKick"); }
+          const ripe = (b) => this.hasPress(b) && g.frame - this.buf[b] >= BREAK.together - 1;
+          if (ripe(IN.PUNCH) && !this.hasPress(IN.KICK)) { this.consume(IN.PUNCH); this.airAttackUsed = true; this.startMove("airPunch"); }
+          else if (ripe(IN.KICK) && !this.hasPress(IN.PUNCH)) { this.consume(IN.KICK); this.airAttackUsed = true; this.startMove("airKick"); }
         }
+        break;
+      case "burst":
+        this.vx *= 0.85;
+        if (this.sf >= 16) {
+          if (this.airborne) { this.setState("air"); this.airAttackUsed = true; }
+          else this.setState(this.held & IN.DOWN ? "crouch" : "idle");
+        }
+        break;
+      case "airdodge":
+        this.vx *= 0.93;
+        if (this.sf >= 15) { this.setState("air"); }
         break;
       case "land":
         this.vx = 0;
@@ -433,12 +491,16 @@ class Fighter {
       this.kickV *= 0.82;
       if (Math.abs(this.kickV) < 4) this.kickV = 0;
     }
-    if (this.airborne) {
+    if (this.airborne || this.state === "launch") {
+      // a body can't hang in the air: after AIR_TIMEOUT it is pulled down hard
+      this.airT = (this.airT || 0) + 1;
+      if (this.airT > AIR_TIMEOUT) this.vy = Math.min(this.vy, -700);
       this.vy -= (this.state === "launch" ? LAUNCH_GRAVITY : GRAVITY) * DT;
       this.x += this.vx * DT;
       this.y += this.vy * DT;
-      if (this.y <= 0) { this.y = 0; this.vy = 0; this.onLand(); }
+      if (this.y <= 0) { this.y = 0; this.vy = 0; this.airT = 0; this.onLand(); }
     } else {
+      this.airT = 0;
       if (this.state === "hitstun" || this.state === "blockstun" || this.state === "getup") this.vx *= 0.86;
       this.x += this.vx * DT;
     }
@@ -461,6 +523,11 @@ class Fighter {
       this.move = null; this.strikeInvuln = false; this.armored = false;
       this.landLag = lag; this.vx = 0;
       this.setState("land");
+      return;
+    }
+    if (this.state === "burst" || this.state === "airdodge") {
+      this.vx = 0; this.landLag = 4; this.setState("land");
+      g.fx("dust", { x: this.x, small: true }); g.sound("land");
       return;
     }
     if (this.state === "air" || this.state === "squat") {
@@ -507,6 +574,8 @@ class Fighter {
         if (this.sf < 20) { key = "launch"; restart = "l" + this.hitSerial; } else key = "launchhold";
         break;
       case "down": key = "down"; break;
+      case "burst": key = "burst"; restart = "u" + this.hitSerial; break;
+      case "airdodge": key = this.dodgeDir > 0 ? "airdodgef" : "airdodgeb"; restart = "a" + this.hitSerial; break;
       case "ko": key = "downko"; break;
       case "getup": key = "getup"; break;
       case "thrown":

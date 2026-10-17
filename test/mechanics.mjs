@@ -683,5 +683,57 @@ test("tag team: a benched partner wins back half the damage of their stint", () 
   assert(a.background && a.hp === a.maxHp - 20, "hp " + (a.maxHp - 40) + " -> " + a.hp + " (want " + (a.maxHp - 20) + ")");
 });
 
+test("a launched body never hangs in the air: it lands even from just above the floor", () => {
+  const g = duel(0, 3);
+  const b = g.fighters[1];
+  b.state = "launch"; b.sf = 0; b.y = 0.002; b.vy = -300; b.vx = 240;
+  idle(g, 3);
+  assert(b.state === "down", "state " + b.state + " y " + b.y);
+  b.state = "launch"; b.sf = 0; b.y = 0; b.vy = 0; b.vx = 240;
+  idle(g, 2);
+  assert(b.state === "down", "grounded launch -> " + b.state);
+  // a body kept up by something odd is pulled down after the air timeout
+  b.state = "launch"; b.y = 60; b.vy = 1200;
+  runUntil(g, () => b.state === "down", SIM_HZ * 4);
+});
+
+test("BREAK: punch + kick with a full meter breaks a combo, pushes the attacker off and costs the meter", () => {
+  const g = duel(0, 1, -40, 40);
+  const [a, b] = g.fighters;
+  b.brk = 99; b.state = "hitstun"; b.stun = 30; b.sf = 0; b.combo = 3;
+  frame(g, { 1: IN.PUNCH | IN.KICK });
+  assert(b.state === "hitstun", "a meter short of full does nothing: " + b.state);
+  idle(g, 2);
+  b.brk = 100; b.state = "hitstun"; b.stun = 30;
+  frame(g, { 1: IN.PUNCH | IN.KICK });
+  assert(b.state === "burst", "burst state: " + b.state);
+  assert(b.brk < 1 && b.invuln > 20 && b.combo === 0, "meter " + b.brk + " invuln " + b.invuln);
+  assert(a.state === "blockstun" && a.kickV < 0, "attacker pushed: " + a.state + " kickV " + a.kickV);
+  assert(says(g).some((t) => /BREAK/.test(t)) || g.comboTag[1].text === "BREAK", "BREAK callout");
+  idle(g, 20);
+  assert(b.state === "idle" || b.state === "crouch", "back on guard: " + b.state);
+});
+
+test("BREAK: half a meter air-dodges once per jump; the meter refills over time and from damage", () => {
+  const g = duel(0, 1);
+  const a = g.fighters[0];
+  a.brk = 60;
+  frame(g, { 0: IN.UP });
+  runUntil(g, () => a.state === "air", 20, { 0: IN.UP });
+  idle(g, 4);
+  frame(g, { 0: IN.PUNCH | IN.KICK | IN.LEFT });
+  assert(a.state === "airdodge" && Math.abs(a.brk - 10) < 1 && a.invuln > 0, "dodge " + a.state + " " + a.brk);
+  assert(a.vx < 0, "dodges away (left) " + a.vx);
+  a.brk = 80;
+  idle(g, 16);
+  frame(g, { 0: IN.PUNCH | IN.KICK });
+  assert(a.state !== "airdodge", "only one dodge per jump");
+  runUntil(g, () => a.state === "idle", SIM_HZ * 2);
+  a.brk = 0; idle(g, SIM_HZ);
+  assert(a.brk > 5 && a.brk < 9, "refill per second " + a.brk);
+  g.applyDamage(a, 10, g.fighters[1]);
+  assert(a.brk > 17, "damage adds meter " + a.brk);
+});
+
 console.log(failed ? `\n${failed} FAILED` : "\nALL PASSED");
 process.exit(failed ? 1 : 0);

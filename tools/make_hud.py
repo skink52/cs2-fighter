@@ -24,6 +24,10 @@ def card(n, side, row2=False):
 				<Panel id="pb_c{n}_fill" class="Fill w100" hittest="false" />
 				<Panel class="Shine" hittest="false" />
 				<Panel class="Ticks" hittest="false">{TICKS}</Panel>
+				<Panel class="Brk" hittest="false">
+					<Panel id="pb_c{n}_brk" class="BrkFill w100" hittest="false" />
+					<Panel class="BrkMark" hittest="false" />
+				</Panel>
 			</Panel>
 			<Panel class="NamePlate" hittest="false" />
 			<Label id="pb_c{n}_name" class="CardName" text="{{s:t}}" />
@@ -136,20 +140,20 @@ CSS = """/* Puppet Brawl HUD - driven by scripts/puppet_brawl.js through custom_
 .Card.stShow.stBench { opacity: 0.6; }
 
 /* seat colour: a cap on the outer end of the bar */
-.Stripe { width: 10px; height: 36px; margin-top: 4px; background-color: #ffffff; border-right: 2px solid #000000; }
+.Stripe { width: 10px; height: 34px; margin-top: 3px; background-color: #ffffff; border-right: 2px solid #000000; }
 .Card.Right .Stripe { horizontal-align: right; border-right: 0px solid #000000; border-left: 2px solid #000000; }
 
 /* health: blood-dark trough, white-hot damage chip that drains after a beat, fire fill, ticks */
 .Bar {
-	width: 552px; height: 30px;
-	margin-left: 12px; margin-top: 4px;
+	width: 552px; height: 34px;
+	margin-left: 12px; margin-top: 3px;
 	background-color: gradient( linear, 0% 0%, 0% 100%, from( #2c0706 ), to( #110202 ) );
 	border: 3px solid #000000;
 	box-shadow: #000000aa 3px 4px 0px 0px;
 }
 .Card.Right .Bar { horizontal-align: right; margin-left: 0px; margin-right: 12px; }
 .Card.stMe .Bar { border: 3px solid #f0b21c; }
-.Fill, .Chip { height: 30px; horizontal-align: left; }
+.Fill, .Chip { height: 19px; horizontal-align: left; }
 .Card.Right .Fill, .Card.Right .Chip { horizontal-align: right; }
 .Chip { background-color: #fff2cc; transition-property: width; transition-duration: 0.6s; transition-delay: 0.4s; transition-timing-function: ease-out; }
 .Fill {
@@ -161,8 +165,8 @@ CSS = """/* Puppet Brawl HUD - driven by scripts/puppet_brawl.js through custom_
 	animation-name: pb-throb; animation-duration: 0.7s; animation-iteration-count: infinite;
 }
 .Shine { width: 552px; height: 9px; background-color: #ffffff26; }
-.Ticks { width: 552px; height: 30px; flow-children: right; }
-.Tick { width: 10%; height: 30px; border-right: 2px solid #00000088; }
+.Ticks { width: 552px; height: 19px; flow-children: right; }
+.Tick { width: 10%; height: 19px; border-right: 2px solid #00000088; }
 
 /* the name plate under the bar: player name, fighter, YOU */
 .NamePlate {
@@ -198,6 +202,25 @@ CSS = """/* Puppet Brawl HUD - driven by scripts/puppet_brawl.js through custom_
 }
 .Card.Right .YouTag { horizontal-align: right; margin-left: 0px; margin-right: 380px; }
 .Card.stMe .YouTag { opacity: 1; }
+
+/* BREAK meter: the bottom strip of the health bar, violet, a notch at half (air dodge), white-hot
+   and glowing when full */
+.Brk { width: 100%; height: 9px; margin-top: 19px; background-color: #0e0918; border-top: 1px solid #000000; }
+.BrkFill {
+	height: 8px; horizontal-align: left;
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #b48cff ), to( #4a2296 ) );
+	transition-property: width; transition-duration: 0.15s;
+}
+.Card.Right .BrkFill { horizontal-align: right; }
+.BrkMark { width: 2px; height: 8px; horizontal-align: center; background-color: #000000; }
+.Card.stBrkHalf .BrkFill { background-color: gradient( linear, 0% 0%, 0% 100%, from( #d2b8ff ), to( #6a38d0 ) ); }
+.Card.stBrkFull .BrkFill {
+	background-color: gradient( linear, 0% 0%, 0% 100%, from( #ffffff ), to( #a878ff ) );
+	animation-name: pb-throb; animation-duration: 0.6s; animation-iteration-count: infinite;
+}
+.Card.stBrkFull .Bar { box-shadow: #a070ff 0px 0px 10px 2px; }
+.Card.stMe.stBrkFull .Bar { box-shadow: #a070ff 0px 0px 10px 2px; }
+.Card.Row2 .Brk { opacity: 0; height: 12px; margin-top: 0px; }
 
 /* round wins: hard diamonds at the inner end, under the bar */
 .Pips { width: 96px; height: 22px; horizontal-align: right; margin-right: 6px; margin-top: 44px; flow-children: left; }

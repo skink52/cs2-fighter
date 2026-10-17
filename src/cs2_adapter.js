@@ -344,6 +344,15 @@ function onFx(e) {
         if (e.heavy) particle("arc", e.x, e.y, 10, 0.25, -e.dir, 0.1);
       }
       break;
+    case "break":
+      // combo break: a white-violet shockwave round the body, pushing everyone off
+      if (typeof e.seat === "number") flashBody(e.seat, 12, { r: 220, g: 200, b: 255 });
+      ring(e.x, e.y, 10, 110, { r: 205, g: 170, b: 255 }, 16, false);
+      ring(e.x, e.y, 6, 60, WHITE, 10, false);
+      ring(e.x, 0, 10, 80, { r: 170, g: 130, b: 255 }, 14, true);
+      particle("zap", e.x, e.y, 10, 0.5, 1, 0.2);
+      stageCall("BREAK  -  " + game.displayName(e.seat), 1.2);
+      break;
     case "armor":
       ring(e.x, e.y, 6, 34, { r: 255, g: 210, b: 120 }, 9, false);
       particle("sparks", e.x, e.y, 10, 0.3, -e.dir, 0.06);
@@ -723,6 +732,9 @@ function updateHud() {
     hudVar(id + "_fighter", c.fighter);
     hudWidth(id + "_fill", c.hp);
     hudWidth(id + "_chip", c.hp);
+    hudWidth(id + "_brk", c.brk);
+    hudClass(id, "stBrkFull", !!c.brkFull);
+    hudClass(id, "stBrkHalf", !!c.brkHalf);
     hudClass(id, "stLow", c.hp <= 25);
     hudClass(id, "stKO", c.ko);
     hudClass(id, "stBench", !!c.bench);

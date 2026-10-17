@@ -2,6 +2,7 @@
 // (state names and move ids). New-pipeline clips are built here; anything not rebuilt yet falls
 // back to the previous exporter's clips (read back from their SMDs) so the game stays complete.
 import fs from "node:fs";
+import { FALL_ANIMS } from "./falls.mjs";
 import path from "node:path";
 import { Clip } from "./clip.mjs";
 import { readSMD } from "./smd.mjs";
@@ -16,7 +17,7 @@ import { POSED_MOVES } from "./posed_moves.mjs";
 
 export const FIGHTERS = ["timber", "brass", "pirouette", "motley"];
 export const STATE_KEYS = ["idle", "intro", "walkf", "walkb", "crouch", "block", "cblock", "blockhit", "cblockhit", "squat", "air", "airrise", "land", "dashf", "dashb",
-  "hithigh", "hitmid", "hitcrouch", "launch", "launchhold", "down", "downko", "getup", "throwv", "victory", "lobbyready", "waiting", "cheer", "defeat"];
+  "hithigh", "hitmid", "hitcrouch", "launch", "launchhold", "burst", "airdodgef", "airdodgeb", "down", "downko", "getup", "throwv", "victory", "lobbyready", "waiting", "cheer", "defeat"];
 
 const OLD_DIR = process.env.PB_OLD_ANIMS || "/home/claude/fighter/dist/addon/models/puppet_brawl/rig/anims";
 function oldClip(name, file, loop) {
@@ -44,6 +45,7 @@ export function buildClip(id, key, core) {
   const mspec = ch.moves[key] ? mocapSpec(id, key) : null;
   if (mspec) { c = buildMocapMove(id, key, core, mspec); fresh = true; }
   else if (ch.moves[key] && POSED_MOVES[key]) { c = POSED_MOVES[key](id, core); fresh = true; }
+  else if (FALL_ANIMS[key]) { c = FALL_ANIMS[key](id, core); fresh = true; }
   else if (NEW[key]) { c = NEW[key](id, core); fresh = true; }
   else if (STATE_ANIMS[key]) { c = STATE_ANIMS[key](id, core); fresh = true; }
   else if (EXTRA_ANIMS[key] && (c = EXTRA_ANIMS[key](id, core))) fresh = true;

@@ -666,7 +666,29 @@ class Game {
     this.spark(t.x, 30, { r: 255, g: 200, b: 120 }, 14);
   }
 
+  // a fighter spent a full BREAK meter: everyone close is shoved off and loses their attack
+  onBreak(f) {
+    for (const o of this.fighters) {
+      if (o === f || !o.active || o.ko || (this.mode !== "ffa" && o.team === f.team)) continue;
+      const dx = o.x - f.x;
+      if (Math.abs(dx) > 95 || Math.abs(o.y - f.y) > 90) continue;
+      const dir = dx === 0 ? -f.facing : Math.sign(dx);
+      o.kickV = dir * 620;
+      if (o.victim) continue;
+      if (o.state === "attack" || o.state === "dash" || o.state === "hitstun" || o.state === "idle" || o.state === "walk" || o.state === "crouch") {
+        o.move = null; o.strikeInvuln = false; o.armored = false;
+        o.setState("blockstun"); o.stun = 20; o.hitSerial++;
+      }
+    }
+    this.tagCombo(f.seat, "BREAK", "perfect", 1.2);
+    this.fx("break", { x: f.x, y: f.y + 45, seat: f.seat });
+    this.sound("counter"); this.sound("blockh");
+    this.spark(f.x, f.y + 45, { r: 210, g: 180, b: 255 }, 16);
+    this.shake(1.4);
+  }
+
   applyDamage(d, dmg, attacker) {
+    d.brk = Math.min(100, (d.brk || 0) + dmg * 1.2);
     d.stintDmg = (d.stintDmg || 0) + Math.min(dmg, d.hp);
     d.hp = Math.max(0, d.hp - dmg);
     d.lastAttacker = attacker ? attacker.seat : -1;
@@ -1084,7 +1106,7 @@ class Game {
   }
 
   makeHud() {
-    const card = () => ({ show: false, name: "", fighter: "", color: 0, hp: 100, wins: 0, need: 2, combo: "", comboTag: "", comboKind: "", comboHits: "", comboSub: "",
+    const card = () => ({ show: false, name: "", fighter: "", color: 0, hp: 100, brk: 0, brkFull: false, brkHalf: false, wins: 0, need: 2, combo: "", comboTag: "", comboKind: "", comboHits: "", comboSub: "",
       best: "", ko: false, bench: false, side: "L", you: -1 });
     return {
       inLobby: true, inMatch: false,
@@ -1134,6 +1156,9 @@ class Game {
       card.fighter = f.ch.name + (this.tagMode && f.background ? (f.ko ? "  \u00B7  OUT" : "  \u00B7  BENCH") : "");
       card.color = this.mode === "teams" ? (seat < 2 ? (seat === 0 ? 0 : 4) : (seat === 2 ? 1 : 5)) : seat;
       card.hp = Math.round(100 * clamp(f.hp / Math.max(1, f.maxHp), 0, 1));
+      card.brk = 5 * Math.floor(clamp(f.brk || 0, 0, 100) / 5);
+      card.brkFull = (f.brk || 0) >= 100;
+      card.brkHalf = (f.brk || 0) >= 50;
       card.wins = this.teamWins[f.team] || 0;
       card.need = this.cfg.roundsToWin;
       card.ko = f.ko;
@@ -1202,13 +1227,16 @@ class Game {
         else if (!partner) out.status = "Last one standing!";
         else out.status = this.tagCD[f.team] > 0 ? "Tag ready in " + Math.ceil(this.tagCD[f.team] / SIM_HZ) : "SHIFT+R: tag in " + this.displayName(partner.seat);
       } else out.status = "";
+      // the BREAK meter is full: say how to use it (shown in the status strip while fighting)
+      if (this.inMatch() && this.active.includes(i) && !f.background && !f.ko && (f.brk || 0) >= 100)
+        out.status = "BREAK READY  \u00B7  MOUSE1 + MOUSE2 while being hit" + (out.status ? "   |   " + out.status : "");
     }
     if (this.mode === "duel" && this.inMatch()) {
       const waiting = this.queue.filter((q) => !this.active.includes(q));
       const streak = this.streak > 1 && this.champion >= 0 ? "STREAK: " + this.displayName(this.champion) + " x" + this.streak : "";
       H.queue = waiting.length ? "NEXT UP: " + this.displayName(waiting[0]) + (streak ? "  \u00B7  " + streak : "") : streak;
     } else H.queue = "";
-    H.footer = "A/D move  \u00B7  W jump  \u00B7  S crouch  \u00B7  MOUSE1 punch  \u00B7  MOUSE2 kick  \u00B7  SHIFT block  \u00B7  R special  \u00B7  F throw  \u00B7  hold E to leave";
+    H.footer = "A/D move  \u00B7  W jump  \u00B7  S crouch  \u00B7  MOUSE1 punch  \u00B7  MOUSE2 kick  \u00B7  SHIFT block  \u00B7  R special  \u00B7  F throw  \u00B7  MOUSE1+2 break  \u00B7  hold E to leave";
   }
 
   // ------------------------------------------------------------------ render export
@@ -1222,9 +1250,9 @@ class Game {
 //  CPU brain - presses the same virtual buttons a player would.
 // =====================================================================================
 const AI_LEVELS = [
-  { react: [20, 30], block: 0.2, aggro: 0.45, special: 0.12, antiAir: 0.2, punish: 0.25, throwP: 0.08, tech: 0.05, perfect: 0.04 },
-  { react: [11, 18], block: 0.5, aggro: 0.6, special: 0.2, antiAir: 0.45, punish: 0.5, throwP: 0.12, tech: 0.2, perfect: 0.12 },
-  { react: [6, 11], block: 0.72, aggro: 0.7, special: 0.24, antiAir: 0.7, punish: 0.8, throwP: 0.15, tech: 0.4, perfect: 0.25 },
+  { react: [20, 30], block: 0.2, aggro: 0.45, special: 0.12, antiAir: 0.2, punish: 0.25, throwP: 0.08, tech: 0.05, perfect: 0.04, burst: 0.05, dodge: 0 },
+  { react: [11, 18], block: 0.5, aggro: 0.6, special: 0.2, antiAir: 0.45, punish: 0.5, throwP: 0.12, tech: 0.2, perfect: 0.12, burst: 0.2, dodge: 0.12 },
+  { react: [6, 11], block: 0.72, aggro: 0.7, special: 0.24, antiAir: 0.7, punish: 0.8, throwP: 0.15, tech: 0.4, perfect: 0.25, burst: 0.4, dodge: 0.25 },
 ];
 
 class CpuBrain {
@@ -1267,6 +1295,15 @@ class CpuBrain {
     const t = g.nearestEnemy(f);
     if (!t) return [0, 0];
     const dist = Math.abs(t.x - f.x);
+    // BREAK: one roll per hit taken once a combo is hurting; an air dodge away from anti-airs
+    if ((f.state === "hitstun" || f.state === "launch") && f.brk >= 100 && f.hitSerial !== this.breakSeen) {
+      this.breakSeen = f.hitSerial;
+      if ((f.combo >= 3 || f.comboDmg >= 16 || f.state === "launch") && R.chance(L.burst)) { this.plan.length = 0; return [IN.PUNCH | IN.KICK, IN.PUNCH | IN.KICK]; }
+    }
+    if (f.state === "air" && !f.airDodged && f.brk >= 50 && t.state === "attack" && dist < 110 && t.moveSerial !== this.dodgeSeen) {
+      this.dodgeSeen = t.moveSerial;
+      if (R.chance(L.dodge)) { this.plan.length = 0; return [IN.PUNCH | IN.KICK | f.awayBit(), IN.PUNCH | IN.KICK]; }
+    }
     // defence: notice new enemy attacks (one roll per move)
     if (t.state === "attack" && t.move && t.moveSerial !== this.seenSerial && NEUTRAL.has(f.state)) {
       this.seenSerial = t.moveSerial;

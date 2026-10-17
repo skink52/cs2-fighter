@@ -1,6 +1,7 @@
 // Clips: sequences of rig poses at 64 Hz, plus tools to cut them from mocap, retime, blend,
 // plant feet and finish them for export.
 import path from "node:path";
+import { limitAnkles } from "./pose.mjs";
 import { q, v3, clamp, smooth, smoother } from "./m3.mjs";
 import { SK, IDX, N, fk, toLocals, mirrorPose, setWorldRot } from "./rig.mjs";
 import { loadBVH } from "./bvh.mjs";
@@ -178,6 +179,7 @@ export class Clip {
       const fist = typeof this.fist === "function" ? this.fist(f, this) : this.fist;
       for (const s of ["L", "R"]) shapeHand(W, s, handShape(fist[s]));
       spreadTwist(W);
+      limitAnkles(W);
       return W;
     });
     return this;

@@ -300,8 +300,12 @@ def cls(id_, *cs, on=True):
         (BYID[id_].cls.add if on else BYID[id_].cls.discard)(c)
 def txt(id_, t): BYID[id_].text = t
 
-def card(n, name, fighter, hp, col, wins=0, me=False):
+def card(n, name, fighter, hp, col, wins=0, me=False, brk=40):
     i = 'pb_c%d' % n
+    if i + '_brk' in BYID:
+        BYID[i + '_brk'].cls = set(c for c in BYID[i + '_brk'].cls if not re.match(r'^w\d+$', c)); cls(i + '_brk', 'w%d' % brk)
+        if brk >= 50: cls(i, 'stBrkHalf')
+        if brk >= 100: cls(i, 'stBrkFull')
     cls(i, 'stShow', 'stCol%d' % col)
     if me: cls(i, 'stMe')
     txt(i + '_name', name); txt(i + '_fighter', fighter)
@@ -313,13 +317,13 @@ def card(n, name, fighter, hp, col, wins=0, me=False):
     for p in range(1, 4):
         if wins >= p: cls('%s_pip%d' % (i, p), 'stWon')
 
-KEYS = 'A/D move  ·  W jump  ·  S crouch  ·  MOUSE1 punch  ·  MOUSE2 kick  ·  SHIFT block  ·  R special  ·  F throw  ·  hold E to leave'
+KEYS = 'A/D move  ·  W jump  ·  S crouch  ·  MOUSE1 punch  ·  MOUSE2 kick  ·  SHIFT block  ·  R special  ·  F throw  ·  MOUSE1+2 break  ·  hold E to leave'
 
 def fight_state(ko=False):
     reset()
     cls('pb_game', 'stMatch', 'stMode_duel'); cls('pb_game', 'stHidden', on=False)
-    card(1, 'skink52', 'TIMBER', 64, 0, wins=1, me=True)
-    card(2, 'Longnameplaye.', 'PIROUETTE', 8 if ko else 38, 1)      # as long as the script lets a name be (14)
+    card(1, 'skink52', 'TIMBER', 64, 0, wins=1, me=True, brk=100)
+    card(2, 'Longnameplaye.', 'PIROUETTE', 8 if ko else 38, 1, brk=55)      # as long as the script lets a name be (14)
     txt('pb_timer', '47'); txt('pb_round', 'ROUND 2'); txt('pb_queue', 'NEXT UP: BOB  ·  STREAK: SKINK52 x2')
     if ko:
         cls('pb_c2', 'stKO'); txt('pb_announce', 'K.O.'); cls('pb_announce', 'stShow', 'stKo')
