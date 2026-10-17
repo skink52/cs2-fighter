@@ -45,7 +45,7 @@ export const STANCES = {
     pelvis: [1, -1, 39], hipYaw: -42, hipPitch: 0, lean: 3, twist: 10, side: 0,
     lead: { p: [14, 4], yaw: 10, heel: 18 }, rear: { p: [-13, -6], yaw: -65, heel: 22 },
     hands: { L: [25, 6, 54], R: [8, -12, 48] }, elbows: { L: [14, 18, 44], R: [-4, -20, 40] },
-    palms: { L: [0, -0.3, -0.9], R: [0.2, 0.4, -0.9] },
+    palms: { L: [0, -0.3, -0.9], R: [0.2, 0.4, -0.9] }, wrist: { L: -14, R: -14 },
     look: [100, 0, 64], fist: 0.3,
     idle: { frames: 60, bounce: 0.9, shift: 0.5, sway: 3.0, fists: 1.6, breathe: 0.7 },
     air: { pelvis: [0, 0, 32], hipYaw: -30, lean: 2, twist: 8, lead: { p: [11, 4], z: 14, yaw: 15, pitch: -35, knee: [40, 8, 46] }, rear: { p: [-8, -5], z: 9, yaw: -30, pitch: -55, knee: [30, -6, 34] },
@@ -58,7 +58,7 @@ export const STANCES = {
     pelvis: [0, -1, 34.5], hipYaw: -45, hipPitch: 8, hipRoll: 4, lean: 12, twist: 14, side: -6,
     lead: { p: [17, 8], yaw: 20 }, rear: { p: [-15, -10], yaw: -50, heel: 10 },
     hands: { L: [24, 10, 46], R: [12, -14, 42] }, elbows: { L: [12, 22, 36], R: [0, -24, 36] },
-    palms: { L: [0.2, -0.4, -0.9], R: [0.3, 0.3, -0.9] },
+    palms: { L: [0.2, -0.4, -0.9], R: [0.3, 0.3, -0.9] }, wrist: { L: -24, R: -22 },
     look: [100, 0, 58], fist: 0.55, headRoll: 9,
     idle: { frames: 64, bounce: 1.1, shift: 1.2, sway: 4.0, fists: 2.4, breathe: 0.6 },
     air: { pelvis: [0, 0, 30], hipYaw: -35, lean: 10, twist: 8, lead: { p: [10, 7], z: 12, yaw: 25, pitch: -25, knee: [40, 12, 42] }, rear: { p: [-7, -8], z: 9, yaw: -25, pitch: -45, knee: [30, -10, 32] },
@@ -86,7 +86,7 @@ export function stanceSpec(S) {
     pelvis: { p: S.pelvis, yaw: S.hipYaw || 0, pitch: S.hipPitch || 0, roll: S.hipRoll || 0 },
     chest: { yaw: S.twist || 0, pitch: S.lean || 0, side: S.side || 0 },
     feet: { L: foot(S.lead), R: foot(S.rear) },
-    hands: { L: { p: S.hands.L, elbow: S.elbows.L, palm: (S.palms || {}).L }, R: { p: S.hands.R, elbow: S.elbows.R, palm: (S.palms || {}).R } },
+    hands: { L: { p: S.hands.L, elbow: S.elbows.L, palm: (S.palms || {}).L, bend: (S.wrist || {}).L || 0 }, R: { p: S.hands.R, elbow: S.elbows.R, palm: (S.palms || {}).R, bend: (S.wrist || {}).R || 0 } },
     look: S.look, headRoll: S.headRoll || 0,
   };
 }
@@ -97,9 +97,9 @@ export function buildStance(id, mods = {}) {
 }
 
 // the crouching guard: the stance with the crouch overrides
-export function crouchStance(id) { const S = STANCES[id]; return { ...S, ...S.crouch, fist: S.fist, headRoll: S.headRoll, cheat: S.cheat, palms: S.palms }; }
+export function crouchStance(id) { const S = STANCES[id]; return { ...S, ...S.crouch, fist: S.fist, headRoll: S.headRoll, cheat: S.cheat, palms: S.palms, wrist: S.wrist }; }
 export function buildCrouch(id) { return posture(stanceSpec(crouchStance(id))); }
-export function airStance(id) { const S = STANCES[id]; return { ...S, ...S.air, fist: S.fist, headRoll: S.headRoll, cheat: S.cheat, palms: S.palms }; }
+export function airStance(id) { const S = STANCES[id]; return { ...S, ...S.air, fist: S.fist, headRoll: S.headRoll, cheat: S.cheat, palms: S.palms, wrist: S.wrist }; }
 export function buildAir(id) { return posture(stanceSpec(airStance(id))); }
 
 // world pose with the camera cheat applied (the stances are built open, so this is 0 now)
@@ -125,7 +125,7 @@ export function buildIdle(id, { name = id + "_idle" } = {}) {
       const h = S.hands[s];
       const ph = s === "L" ? 0 : 0.9;
       const off = [I.fists * 0.45 * Math.cos(w - 1.2 + ph) + dx * 0.6, 0, chestDz + I.fists * 0.6 * Math.sin(w - 1.2 + ph)];
-      setHand(W, s, v3.add(h, off), { elbow: S.elbows[s], palm: S.palms[s] });
+      setHand(W, s, v3.add(h, off), { elbow: S.elbows[s], palm: S.palms[s], bend: (S.wrist || {})[s] || 0 });
     }
     lookAt(W, v3.add(S.look, [0, 0, dz * 0.5]), { roll: S.headRoll || 0 });
     poses.push(W);
@@ -184,12 +184,12 @@ export function buildWalk(id, dir, speedFU, { name = `${id}_walk${dir > 0 ? "f" 
       const h = S.hands[s];
       const bobH = bob * 0.6 + 0.4 * Math.sin(u * Math.PI * 4 + (s === "L" ? 0 : 1));
       if (dir > 0) {
-        setHand(W, s, v3.add(h, [0.6 * Math.sin(u * Math.PI * 2 + (s === "L" ? 0 : Math.PI)), 0, bobH]), { elbow: S.elbows[s], palm: S.palms[s] });
+        setHand(W, s, v3.add(h, [0.6 * Math.sin(u * Math.PI * 2 + (s === "L" ? 0 : Math.PI)), 0, bobH]), { elbow: S.elbows[s], palm: S.palms[s], bend: (S.wrist || {})[s] || 0 });
       } else {
         // walking back the guard closes up: both fists come in toward the chin
         const g = S.hands[s];
         const tgt = s === "L" ? [g[0] - 5, g[1] - 1, g[2] + 3] : [g[0] - 1, g[1] + 1, g[2] + 2];
-        setHand(W, s, v3.add(tgt, [0, 0, bobH]), { elbow: S.elbows[s], palm: S.palms[s] });
+        setHand(W, s, v3.add(tgt, [0, 0, bobH]), { elbow: S.elbows[s], palm: S.palms[s], bend: (S.wrist || {})[s] || 0 });
       }
     }
     lookAt(W, S.look, { roll: S.headRoll || 0 });

@@ -26,7 +26,8 @@ const PER = {
   brass: {
     // Boiler Kick: a big lead-leg push kick, shield arms kept up
     boilerKick: { take: "144_09", tip: "fT", support: "R", place: "pelvis", pelvisDx: -3,
-      keys: [[0, 1376], [6, 1414], [10, 1440], [13, 1452], [32, 1535]], aim: 1440, keep: { armL: 0.65, armR: 0.65 }, steer: [{ from: 10, to: 13, z: 36, ease: 4 }] },
+      keys: [[0, 1376], [6, 1414], [10, 1440], [13, 1452], [32, 1535]], aim: 1440, keep: { armL: 0.65, armR: 0.65 }, steer: [{ from: 10, to: 13, z: 33, ease: 4 }],
+      lean: { deg: 12, from: 7, to: 15, ease: 5 } },
   },
   pirouette: {
     // Arabesque: a dancer's grand battement, the straight leg thrown up past head height

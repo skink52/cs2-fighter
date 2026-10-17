@@ -142,7 +142,7 @@ export function applySpec(base, S, spec) {
     // the wrist stays straight with the stance's palm facing (carried by the chest); an aimed
     // key turns the fist toward its aim on top of that
     const palm = S.palms && S.palms[s] ? q.rotate(dq, S.palms[s]) : null;
-    setHand(W, s, target, { elbow, palm });
+    setHand(W, s, target, { elbow, palm, bend: (S.wrist || {})[s] || 0 });
     const aw = clamp(hs.aw ?? 1, 0, 1);
     if (hs.aim && aw > 0.001) {
       const hi = IDX["hand_" + s], q0 = W[hi].q.slice();

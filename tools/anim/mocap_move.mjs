@@ -6,7 +6,9 @@ import { q, v3, clamp, smoother } from "./m3.mjs";
 import { SK, IDX, N, fk, toLocals, mirrorPose } from "./rig.mjs";
 import { mocapPose, clonePose, hermiteMap, monotoneSlopes } from "./clip.mjs";
 import { ik2, LEG, ARM } from "./post.mjs";
-import { lookAt } from "./pose.mjs";
+import { lookAt, bendSpine } from "./pose.mjs";
+import { BIND } from "./rig.mjs";
+const BIND_PELVIS_Q = BIND[IDX.pelvis].q;
 
 // world tip of a limb (matches bake.mjs): fists at the knuckles, feet between ankle and toe
 export function tipOf(W, tip) {
@@ -178,6 +180,18 @@ export function mocapPoses(spec, { start, end, k = 1, n }) {
       const c = W[IDX["ankle_" + sup]].p;
       const r = q.axisAngle([0, 0, 1], T.deg * w * Math.PI / 180);
       return W.map((t) => ({ q: q.mul(r, t.q), p: v3.add(c, q.rotate(r, v3.sub(t.p, c))) }));
+    });
+  }
+  // lean: the upper body tips back (deg > 0) over a window, e.g. to counter a big push kick
+  if (spec.lean) {
+    const T = spec.lean;
+    const a0 = Math.round(T.from * k), a1 = Math.round(T.to * k), e = Math.max(1, Math.round((T.ease ?? 4) * k));
+    P = P.map((W, f) => {
+      const w = f < a0 - e || f > a1 + e ? 0 : f < a0 ? smoother((f - (a0 - e)) / e) : f > a1 ? 1 - smoother((f - a1) / e) : 1;
+      if (w <= 0) return W;
+      const left = q.rotate(W[IDX.pelvis].q, q.rotate(q.conj(BIND_PELVIS_Q), [0, 1, 0]));
+      bendSpine(W, left, -T.deg * w * Math.PI / 180);
+      return W;
     });
   }
   if (spec.lock) {

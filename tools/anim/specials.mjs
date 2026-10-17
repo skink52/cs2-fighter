@@ -169,12 +169,12 @@ export const SPECIAL_ANIMS = {
   // Rivet Hammer: both fists clasped overhead, then a sledgehammer blow down onto the head
   rivetHammer: (c) => {
     const T = c.tgt("rivetHammer", 0, { dy: 0 });
-    const hit = { L: { w: v3.add(T, [0, 2, 0]), aim: A(1, 0, -0.5) }, R: { w: v3.add(T, [-1, -2, 1]), aim: A(1, 0, -0.5) }, lean: 30, twist: 4, pelvis: [4, 0, -5], headPitch: 10, look: c.pre([70, 0, 30]) };
+    const hit = { L: { w: v3.add(T, [0, 3.2, 0]), aim: A(1, 0, -0.5) }, R: { w: v3.add(T, [-1, -3.2, 1]), aim: A(1, 0, -0.5) }, lean: 30, twist: 4, pelvis: [4, 0, -5], headPitch: 10, look: c.pre([70, 0, 30]) };
     return {
       keys: [
         [0, {}],
-        [6, { L: { w: c.pre([-2, 3, 86]), aim: A(-0.3, 0, 1) }, R: { w: c.pre([-3, -3, 86]), aim: A(-0.3, 0, 1) }, lean: -12, pelvis: [-1, 0, 2.5], look: c.pre([90, 0, 70]) }, "w"],
-        [9, { L: { w: c.pre([-4, 3, 88]), aim: A(-0.4, 0, 1) }, R: { w: c.pre([-5, -3, 88]), aim: A(-0.4, 0, 1) }, lean: -16, pelvis: [-1.5, 0, 3] }, "w"],
+        [6, { L: { w: c.pre([-2, 4, 86]), aim: A(-0.3, 0, 1) }, R: { w: c.pre([-3, -4, 86]), aim: A(-0.3, 0, 1) }, lean: -12, pelvis: [-1, 0, 2.5], look: c.pre([90, 0, 70]) }, "w"],
+        [9, { L: { w: c.pre([-4, 4, 88]), aim: A(-0.4, 0, 1) }, R: { w: c.pre([-5, -4, 88]), aim: A(-0.4, 0, 1) }, lean: -16, pelvis: [-1.5, 0, 3] }, "w"],
         [11, hit],
         [15, { ...hit, pelvis: [4.2, 0, -5.4] }],
         [22, { L: { d: [2, 0, -4] }, R: { d: [2, 0, -4] }, lean: 14, pelvis: [2, 0, -2.5] }, "f"],
@@ -345,9 +345,9 @@ export const SPECIAL_ANIMS = {
   pratfall: (c) => ({
     keys: [
       [0, {}],
-      [3, { fL: { w: c.pre([22, 6, 16]), pitch: 30 }, pelvis: [-2, 0, -2], lean: -20, L: { w: c.pre([4, 22, 70]) }, R: { w: c.pre([-4, -22, 66]) }, look: c.pre([40, 0, 100]), fistL: 0.05, fistR: 0.05 }],
-      [8, { pelvis: [-6, 0, -26], hipPitch: -30, lean: 10, fL: { w: c.pre([22, 7, 10]), pitch: 30 }, fR: { w: c.pre([18, -7, 8]), pitch: 30 }, L: { w: c.pre([-10, 16, 4]) }, R: { w: c.pre([-10, -16, 4]) }, fistL: 0.05, fistR: 0.05 }],
-      [12, { pelvis: [-6, 0, -26], hipPitch: -30, lean: 10, fL: { w: c.pre([22, 7, 10]), pitch: 30 }, fR: { w: c.pre([18, -7, 8]), pitch: 30 }, L: { w: c.pre([-10, 16, 4]) }, R: { w: c.pre([-10, -16, 4]) } }],
+      [3, { fL: { w: c.pre([22, 6, 16]), pitch: 45, knee: c.pre([18, 9, 44]) }, pelvis: [-2, 0, -2], lean: -20, L: { w: c.pre([4, 22, 70]) }, R: { w: c.pre([-4, -22, 66]) }, look: c.pre([40, 0, 100]), fistL: 0.05, fistR: 0.05 }],
+      [8, { pelvis: [-6, 0, -26], hipPitch: -30, lean: 10, fL: { w: c.pre([22, 7, 10]), pitch: 65, knee: c.pre([14, 9, 40]) }, fR: { w: c.pre([18, -7, 8]), pitch: 65, knee: c.pre([10, -9, 38]) }, L: { w: c.pre([-10, 16, 4]) }, R: { w: c.pre([-10, -16, 4]) }, fistL: 0.05, fistR: 0.05 }],
+      [12, { pelvis: [-6, 0, -26], hipPitch: -30, lean: 10, fL: { w: c.pre([22, 7, 10]), pitch: 65, knee: c.pre([14, 9, 40]) }, fR: { w: c.pre([18, -7, 8]), pitch: 65, knee: c.pre([10, -9, 38]) }, L: { w: c.pre([-10, 16, 4]) }, R: { w: c.pre([-10, -16, 4]) } }],
       [17, { pelvis: [0, 0, 2], lean: -10, L: { w: c.pre([8, 24, 76]), aim: A(0.2, 0.4, 1) }, R: { w: c.pre([8, -24, 76]), aim: A(0.2, -0.4, 1) }, fistL: 0, fistR: 0, look: c.pre([90, -30, 70]) }],
       [26, { pelvis: [0, 0, 2.5], lean: -12, L: { w: c.pre([8, 26, 78]), aim: A(0.2, 0.4, 1) }, R: { w: c.pre([8, -26, 78]), aim: A(0.2, -0.4, 1) }, fistL: 0, fistR: 0, look: c.pre([90, -30, 70]) }],
       [34, { pelvis: [0, 0, -1], lean: 4 }, "f"],

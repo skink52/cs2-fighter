@@ -253,3 +253,24 @@ export function armsOutOfBody(W) {
   }
   return W;
 }
+
+// ---------------------------------------------------------------- hips
+// A leg in the air never swings up into the torso: thigh flexion against the hips is held to
+// HIP_FLEX_MAX, the whole leg turned down about the hips' left-right axis (the foot keeps its set
+// on the shin). Planted feet are left alone.
+const HIP_FLEX_MAX = 148;
+export function limitHips(W) {
+  const pq = W[IDX.pelvis].q, bq = q.conj(BIND[IDX.pelvis].q);
+  const fwd = q.rotate(pq, q.rotate(bq, [1, 0, 0])), up = q.rotate(pq, q.rotate(bq, [0, 0, 1])), left = q.rotate(pq, q.rotate(bq, [0, 1, 0]));
+  for (const s of ["L", "R"]) {
+    if (W[IDX["ankle_" + s]].p[2] < 8) continue;
+    const ti = IDX["leg_upper_" + s];
+    const dir = v3.norm(v3.sub(W[IDX["leg_lower_" + s]].p, W[ti].p));
+    const a = v3.dot(dir, fwd), b = -v3.dot(dir, up);
+    if (Math.hypot(a, b) < 0.5) continue;
+    const flex = Math.atan2(a, b) * 180 / Math.PI;
+    if (flex <= HIP_FLEX_MAX) continue;
+    setWorldRot(W, ti, q.mul(q.axisAngle(left, (flex - HIP_FLEX_MAX) * Math.PI / 180), W[ti].q));
+  }
+  return W;
+}

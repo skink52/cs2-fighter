@@ -88,3 +88,15 @@ hitboxes following. Send review images. Free-licence models allowed if agents do
   rig/pb_rig_anims_v3c.zip (Zach extracts into rig/, replaces anims), PUPPET_BRAWL_README.md (build steps, BREAK).
   Review sheets sent: scratchpad/rv/r1_falls_break.png, r2_timber.png, r3_specials.png.
 - NEXT: Zach's in-game test of v2.1.0; his notes on the sheets.
+
+## 18 Oct 07:18 polish pass (Zach: "spend another 30 mins on polish"; resume reminder 08:00 trig_01HsCE5jWfjzffQkTbJiJyvx)
+- DONE (uncommitted until noted): post.mjs limitHips (airborne thigh flexion <= 148, Jester Drop leg no longer in the
+  collarbone), stances.mjs `wrist` bend for PIROUETTE (-14) and MOTLEY (-24/-22) so guard knuckles sit level/up (stanceSpec,
+  idle, walk, keys.mjs applySpec).
+- DONE: mocap `lean` option (boilerKick leans back 12 over f7-15, kick steered to z 33), rivetHammer fists 6.4 apart,
+  fouette spin keyed as a turning tuck (turnSpec) with the leg held high through the active frames (f16), pratfall knee
+  poles + relaxed ankles, sweep transition keys (f5 knee forward, new f15). PIROUETTE dmg 1.14.
+- Balance 600 s x3 (T/B/P/M): L0 56/70/42/31, L1 55/53/47/45, L2 47/38/55/61. All tests pass.
+- v2.1.1 packaged at /mnt/user-data/outputs/pb_v211 (puppet_brawl.js, pb_rig_anims_v3d.zip, README; pb_rig.vmdl
+  unchanged from v2.1.0). PC was NOT connected at 07:31, so the files were sent to Zach in chat; if the bridge is up later,
+  write puppet_brawl.js -> scripts/, the zip -> models/puppet_brawl/rig/, README -> addon root, then verify by re-staging.

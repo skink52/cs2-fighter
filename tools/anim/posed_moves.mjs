@@ -45,7 +45,7 @@ function sweepKeys(id) {
       floorL(-2), { p: [12, -10, 14], elbow: [4, -18, 18], palm: [0, 0.4, -0.9] }, [70, 0, 12], 0.2)],
     // the rear leg comes round the camera side, low and nearly straight
     [5, key([3, -1, 19], 5, 18, { yaw: -6, pitch: 34, side: 3 }, lead(25, 18),
-      { p: [12, -32], z: 4.8, yaw: 30, rel: 10, knee: [10, -22, 45] },
+      { p: [12, -32], z: 4.8, yaw: 30, rel: 10, knee: [26, -22, 26] },
       floorL(), floorR(), [70, 0, 10], 0)],
     // contact: leg straight out in front along the floor, foot hooked (toes up), hips turned in
     [8, key([3, -1, 19], 45, 16, { yaw: -22, pitch: 34, side: 4 }, lead(40, 20),
@@ -55,6 +55,10 @@ function sweepKeys(id) {
     [11, key([3, -1, 19], 60, 10, { yaw: -28, pitch: 36, side: 4 }, lead(50, 20),
       { p: [36, 8], z: 4.8, yaw: 110, rel: -10, knee: [22, 4, 42] },
       floorL(), floorR(-1), [60, 0, 8], 0)],
+    // the leg draws back round the side, knee leading
+    [15, key([3, -1, 19], 30, 14, { yaw: -12, pitch: 30, side: 3 }, lead(35, 18),
+      { p: [12, -26], z: 5.5, yaw: 20, rel: 20, knee: [26, -20, 24] },
+      floorL(), floorR(-1), [70, 0, 12], 0.2)],
     // gather: the leg folds back under, knee down, hips turn home, guard comes up
     [19, key([3, -1, 20], 0, 16, { yaw: 0, pitch: 22, side: 2 }, lead(20, 14),
       { p: [R[0] + 8, R[1] - 6], z: 6, yaw: -20, rel: 35, knee: [R[0] + 14, R[1] - 12, 3] },
@@ -184,15 +188,37 @@ function fouetteKeys(id) {
     // top: the toe above her head
     [13, k([1, -1, 34], 10, -24, { yaw: 0, pitch: -10, side: 0 },
       { p: [9, 4], z: 66, yaw: 0, rel: 45, knee: [30, 6, 80] }, tuckR(16), ...armsOut(60), [60, 0, 70])],
-    // fold in and spin
-    [17, k([0, -1, 32], 130, -6, { yaw: 0, pitch: 0, side: 0 },
-      { p: [5, 4], z: 26, yaw: 0, rel: 40, knee: [20, 6, 50] }, tuckR(14),
-      { p: [8, 8, 52], elbow: [2, 16, 46], palm: [0, -1, 0] }, { p: [6, -8, 52], elbow: [0, -16, 46], palm: [0, 1, 0] }, [40, 0, 56], 0.4)],
-    [23, k([0, -1, 32], 260, 0, { yaw: 0, pitch: 2, side: 0 },
-      { p: [6, 5], z: 13, yaw: 10, rel: 30, knee: [26, 8, 40] }, tuckR(11),
-      { p: [14, 8, 54], elbow: [4, 16, 44], palm: [0, -1, 0] }, { p: [8, -10, 52], elbow: [0, -16, 44], palm: [0, 1, 0] }, [90, 0, 56], 0.4)],
+    // fold in and spin a full turn: the tucked body turns as one, so feet, knees and hands are
+    // given facing forward and turned with the hips
+    // held high to the end of the active frames
+    [16, k([1, -1, 34], 25, -22, { yaw: 0, pitch: -10, side: 0 },
+      { p: [11, 4], z: 60, yaw: 0, rel: 45, knee: [32, 6, 76] }, tuckR(16), ...armsOut(58), [60, 0, 66])],
+    ...[18, 20, 22, 24, 26].map((f) => {
+      const t = (f - 18) / 8, yaw = 50 + t * 270;
+      const o = k([0, -1, 32], yaw, -4, { yaw: 0, pitch: 2, side: 0 },
+        { p: [6, 5], z: 18 - 6 * t, yaw: 10, rel: 35, knee: [26, 8, 44] }, tuckR(13 - 2 * t),
+        { p: [12, 8, 53], elbow: [3, 16, 45], palm: [0, -1, 0] }, { p: [8, -9, 52], elbow: [0, -16, 45], palm: [0, 1, 0] }, [90, 0, 56], 0.4);
+      return [f, turnSpec(o, yaw - (A.hipYaw || -30))];
+    }),
     [28, end],
   ];
+}
+
+// a posture spec turned about the vertical axis through the hips (deg): feet, knee poles, hands,
+// elbows, palms and the look point go round with the body
+function turnSpec(o, deg) {
+  const a = deg * Math.PI / 180, c = Math.cos(a), sn = Math.sin(a);
+  const cx = o.pelvis.p[0], cy = o.pelvis.p[1];
+  const r2 = (v) => [cx + (v[0] - cx) * c - (v[1] - cy) * sn, cy + (v[0] - cx) * sn + (v[1] - cy) * c, ...v.slice(2)];
+  const rd = (v) => [v[0] * c - v[1] * sn, v[0] * sn + v[1] * c, v[2]];
+  for (const side of ["L", "R"]) {
+    const f = o.feet[side];
+    f.p = r2(f.p).slice(0, 2); f.yaw = (f.yaw || 0) + deg; if (f.knee) f.knee = r2(f.knee);
+    const h = o.hands[side];
+    h.p = r2(h.p); if (h.elbow) h.elbow = r2(h.elbow); if (h.palm) h.palm = rd(h.palm);
+  }
+  if (o.look) o.look = r2(o.look);
+  return o;
 }
 
 export const POSED_MOVES = {

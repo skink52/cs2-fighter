@@ -3,7 +3,7 @@
 //  Engine-agnostic. The CS2 script and the browser preview both run this same code.
 // =====================================================================================
 
-const PB_VERSION = "2.1.0";
+const PB_VERSION = "2.1.1";
 const SIM_HZ = 64;
 const DT = 1 / SIM_HZ;
 
@@ -117,7 +117,7 @@ const CHARACTERS = [
     accent: { r: 255, g: 92, b: 205 },
     scale: 1.0,
     limb: "limb",
-    stats: { hp: 108, walkF: 205, walkB: 168, dashV: 490, jumpVy: 700, jumpVx: 232, dmg: 1.10, pushW: 13, frame: 0.94 },
+    stats: { hp: 108, walkF: 205, walkB: 168, dashV: 490, jumpVy: 700, jumpVx: 232, dmg: 1.14, pushW: 13, frame: 0.94 },
     extras: [{ ox: -0.85, oy: 0.55, r: 3.3 }],
     specials: ["spinKick", "glide", "fouette"],
     combos: { p: "pasDeDeux", k: "arabesque", mix: "plieSweep" },

@@ -42,15 +42,15 @@ Each fighter has a stance of their own (guard, weight, how they walk) and every 
 
 ## Building this version (command line)
 
-This update (v2.1.0) changes the script, the HUD and the rig's animations (pb_rig.vmdl now lists 196 clips, each with a mirrored twin, in `anims/`).
+This update (v2.1.1) changes the script, the HUD and the rig's animations (pb_rig.vmdl now lists 196 clips, each with a mirrored twin, in `anims/`).
 
-1. Close CS2 and Hammer. Extract `pb_rig_anims_v3c.zip` into `models/puppet_brawl/rig/` and let it replace the files there (it holds `anims/*.smd`). Older `pb_rig_anims_v3a.zip` / `v3b.zip` are no longer needed.
+1. Close CS2 and Hammer. Extract `pb_rig_anims_v3d.zip` into `models/puppet_brawl/rig/` and let it replace the files there (it holds `anims/*.smd`). Older `pb_rig_anims_v3a.zip` / `v3b.zip` / `v3c.zip` are no longer needed.
 2. Put `mg_cs2_fighter` in `C:\source1\cs2port\build_queue.txt` and run `run_build.bat` (it recompiles `pb_rig.vmdl`). Or compile it on its own from the CS2 folder: `game\bin\win64\resourcecompiler.exe -i content\csgo_addons\mg_cs2_fighter\models\puppet_brawl\rig\pb_rig.vmdl`
 3. Compile the script and the HUD from the CS2 folder (Workshop Tools does not always pick them up on its own):
    - `game\bin\win64\resourcecompiler.exe -f -i content\csgo_addons\mg_cs2_fighter\scripts\puppet_brawl.js`
    - `game\bin\win64\resourcecompiler.exe -f -i content\csgo_addons\mg_cs2_fighter\panorama\layout\custom_game\puppet_brawl.xml`
    - `game\bin\win64\resourcecompiler.exe -f -i content\csgo_addons\mg_cs2_fighter\panorama\styles\custom_game\puppet_brawl.css`
-4. Start CS2 with Workshop Tools and run `map mg_cs2_fighter`. The console should print `[puppet_brawl] v2.1.0 ready: …`. If it shows an older version, the old script is still running (repeat step 3).
+4. Start CS2 with Workshop Tools and run `map mg_cs2_fighter`. The console should print `[puppet_brawl] v2.1.1 ready: …`. If it shows an older version, the old script is still running (repeat step 3).
 5. Walk down to the glowing pads behind the barrier, stand on one and press **E**. For a solo test: `sv_cheats 1` then `pb_cpu_match` to watch two CPUs fight; `pb_stop` ends it.
 
 The map from before the polish pass is kept as `maps/mg_cs2_fighter_pre_polish.vmap`. The files in `models/puppet_brawl/rig/anims/` whose names don't start with `brass_`, `motley_`, `pirouette_` or `timber_` are old clips; nothing uses them, so they can be deleted.
