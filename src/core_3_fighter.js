@@ -40,7 +40,7 @@ class Fighter {
     this.sk = makeSkeleton();
     this.idleT = seat * 17;
     this.parts = [];
-    for (let i = 0; i < PART_COUNT; i++) this.parts.push({ model: "limb", x: 0, y: 0, ang: 0, len: 1, r: 1, depth: 0, color: { r: 255, g: 255, b: 255 }, hidden: true });
+    for (let i = 0; i < PART_COUNT; i++) this.parts.push({ model: "limb", x: 0, y: 0, ang: 0, len: 1, r: 1, w: 0, depth: 0, color: { r: 255, g: 255, b: 255 }, hidden: true });
     this.hurt = [];
     this.tips = {};
     this.thrower = null; this.victim = null; this.throwPelvis = null;

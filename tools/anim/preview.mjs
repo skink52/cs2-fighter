@@ -63,7 +63,7 @@ export function writeMP4(res, file, fps = 32) {
   ffmpeg(["-f", "rawvideo", "-pix_fmt", "rgb24", "-s", `${W}x${H}`, "-r", String(fps), "-i", "-", "-pix_fmt", "yuv420p", "-c:v", "libx264", "-crf", "20", file], all);
 }
 
-if (process.argv[1] && process.argv[1].endsWith("preview.mjs")) {
+if (process.argv[1] && path.basename(process.argv[1]) === "preview.mjs") {
   const arg = (k, d) => { const i = process.argv.indexOf("--" + k); return i < 0 ? d : process.argv[i + 1]; };
   const flag = (k) => process.argv.includes("--" + k);
   const smd = arg("smd");

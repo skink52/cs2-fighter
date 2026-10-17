@@ -131,7 +131,7 @@
   function setView(cam) {
     const scale = W / (2 * cam.half * (1 - (cam.punch || 0)));
     const jx = cam.shake ? (Math.random() - 0.5) * cam.shake : 0, jy = cam.shake ? (Math.random() - 0.5) * cam.shake : 0;
-    view = { cx: cam.cx + (cam.kick || 0) + jx, cy: cam.cy + jy, scale, ox: W / 2, oy: H * 0.56 };
+    view = { cx: cam.cx + (cam.kick || 0) + jx, cy: cam.cy + (cam.lift || 0) + jy, scale: scale / (1 + (cam.lift || 0) / 400), ox: W / 2, oy: H * 0.56 };
   }
   const kd = (d) => 1 + d * 0.0022;
   function sx(x, d = 0) { return view.ox + (x - view.cx) * view.scale * kd(d); }

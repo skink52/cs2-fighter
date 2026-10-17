@@ -576,10 +576,11 @@ function cameraTransform() {
   const cam = game.cam;
   const hfov = 2 * Math.atan(Math.tan(CONFIG.CAMERA_FOV * DEG / 2) * CONFIG.CAMERA_ASPECT / (4 / 3));
   // hits kick the camera along the fight line and big ones punch it in
-  const dist = Math.max(CONFIG.CAMERA_MIN_DIST * 0.8, (cam.half / Math.tan(hfov / 2)) * (1 - (cam.punch || 0)));
+  const lift = cam.lift || 0;
+  const dist = Math.max(CONFIG.CAMERA_MIN_DIST * 0.8, (cam.half / Math.tan(hfov / 2)) * (1 - (cam.punch || 0))) * (1 + lift / 400);
   const cx = cam.cx + (cam.kick || 0);
-  const look = toWorld(cx, CONFIG.CAMERA_LOOK_HEIGHT, 0, 1);
-  const pos = toWorld(cx, CONFIG.CAMERA_HEIGHT, dist, 1);
+  const look = toWorld(cx, CONFIG.CAMERA_LOOK_HEIGHT + lift, 0, 1);
+  const pos = toWorld(cx, CONFIG.CAMERA_HEIGHT + lift, dist, 1);
   if (cam.shake > 0) {
     const a = cam.shake * stage.scale * 0.5;
     pos.x += (Math.random() - 0.5) * a; pos.y += (Math.random() - 0.5) * a; pos.z += (Math.random() - 0.5) * a;
@@ -688,79 +689,97 @@ function hudForget(slot) {
 }
 function hudShowFor(slot, on) {
   const h = hudEnt(); if (!h) return;
-  if (on) hudClassP(slot, "pb_game", "Hidden", false);
+  if (on) hudClassP(slot, "pb_game", "stHidden", false);
   else { try { h.ResetForPlayer(slot); } catch (err) { /* ignore */ } hudForget(slot); }
 }
 
 // Every label shows "{s:t}" until its variable is set, so blank them all up front.
-const HUD_LABELS = ["pb_joinhint_text", "pb_timer", "pb_queue", "pb_announce", "pb_lobby_mode", "pb_lobby_count", "pb_lobby_hint",
-  "pb_me", "pb_moves", "pb_motions", "pb_status", "pb_footer",
-  ...[1, 2, 3, 4].flatMap((n) => ["pb_c" + n + "_name", "pb_c" + n + "_fighter", "pb_c" + n + "_combo", "pb_c" + n + "_best", "pb_lobby_s" + n])];
+const HUD_LABELS = ["pb_joinhint_text", "pb_timer", "pb_round", "pb_queue", "pb_announce", "pb_lobby_mode", "pb_lobby_count", "pb_lobby_hint", "pb_keys",
+  "pb_me", "pb_moves", "pb_motions", "pb_status", "pb_pill_text",
+  ...[1, 2].flatMap((n) => ["pb_k" + n + "_tag", "pb_k" + n + "_hits", "pb_k" + n + "_sub"]),
+  ...[1, 2, 3, 4].flatMap((n) => ["pb_c" + n + "_name", "pb_c" + n + "_fighter", "pb_lobby_s" + n])];
 function hudInitDefaults() {
   const h = hudEnt(); if (!h) return;
   for (const id of HUD_LABELS) { h.SetDialogVariableString(id, "t", ""); hudCache.set("v:" + id, ""); }
 }
 
-const ANN_STYLES = ["big", "fight", "ko", "win", "sub", "small"];
+// Classes the script switches all start with "st" (none has a rule of its own in the css).
+const ANN_STYLES = { big: "stBig", fight: "stFight", ko: "stKo", win: "stWin", sub: "stSub", small: "stSmall" };
+const COMBO_KINDS = { counter: "stCounter", perfect: "stPerfect", finish: "stFinish" };
 function updateHud() {
   if (!hudEnt()) return;
   const H = game.hud;
-  hudClass("pb_game", "InLobby", H.inLobby);
-  hudClass("pb_game", "InMatch", H.inMatch);
-  for (const m of MODES) hudClass("pb_game", "Mode_" + m, game.mode === m);
+  hudClass("pb_game", "stLobby", H.inLobby);
+  hudClass("pb_game", "stMatch", H.inMatch);
+  for (const m of ["duel", "teams", "ffa"]) hudClass("pb_game", "stMode_" + m, game.mode === m);
   const cs = game.cardSeats();
   for (let i = 0; i < 4; i++) {
     const c = H.cards[i], id = "pb_c" + (i + 1);
-    hudClass(id, "Show", c.show);
+    hudClass(id, "stShow", c.show);
     if (!c.show) continue;
     hudVar(id + "_name", c.name);
     hudVar(id + "_fighter", c.fighter);
-    hudVar(id + "_combo", c.combo);
-    hudClass(id, "HasCombo", !!c.combo);
-    hudClass(id, "Perfect", c.comboKind === "perfect");
-    hudVar(id + "_best", c.best);
-    hudClass(id, "HasBest", !!c.best);
     hudWidth(id + "_fill", c.hp);
     hudWidth(id + "_chip", c.hp);
-    hudClass(id, "Low", c.hp <= 25);
-    hudClass(id, "KO", c.ko);
-    hudClass(id, "Bench", !!c.bench);
-    for (let k = 0; k < 6; k++) hudClass(id, "Col" + k, c.color === k);
-    for (let p = 1; p <= 3; p++) hudClass(id + "_pip" + p, "Won", c.wins >= p);
-    hudClass(id, "Need3", c.need >= 3);
+    hudClass(id, "stLow", c.hp <= 25);
+    hudClass(id, "stKO", c.ko);
+    hudClass(id, "stBench", !!c.bench);
+    for (let k = 0; k < 6; k++) hudClass(id, "stCol" + k, c.color === k);
+    for (let p = 1; p <= 3; p++) hudClass(id + "_pip" + p, "stWon", c.wins >= p);
+    hudClass(id, "stNeed3", c.need >= 3);
+  }
+  // combo callouts: the left block follows the left cards (1 and 3), the right block the right ones
+  for (let side = 0; side < 2; side++) {
+    const id = "pb_k" + (side + 1);
+    let c = null;
+    for (const k of [side, side + 2]) { const cc = H.cards[k]; if (cc.show && (cc.comboTag || cc.comboHits) && !c) c = cc; }
+    hudClass(id, "stShow", !!c);
+    if (!c) continue;
+    hudVar(id + "_tag", c.comboTag);
+    hudClass(id, "stTag", !!c.comboTag);
+    for (const [kind, cls] of Object.entries(COMBO_KINDS)) hudClass(id, cls, c.comboKind === kind);
+    hudVar(id + "_hits", c.comboHits);
+    hudVar(id + "_sub", c.comboSub);
+    hudClass(id, "stHits", !!c.comboHits);
   }
   hudVar("pb_timer", H.timer);
-  hudClass("pb_timer", "Low", H.timer !== "" && +H.timer <= 10);
+  hudClass("pb_timer", "stLow", H.timer !== "" && +H.timer <= 10);
+  hudVar("pb_round", H.round);
   hudVar("pb_queue", H.queue);
   const A = H.announce;
   hudVar("pb_announce", A.text);
-  for (const st of ANN_STYLES) hudClass("pb_announce", "St_" + st, A.style === st);
-  hudClass("pb_announce", "Show", A.show && !!A.text);
+  for (const [st, cls] of Object.entries(ANN_STYLES)) hudClass("pb_announce", cls, A.style === st);
+  hudClass("pb_announce", "stShow", A.show && !!A.text);
   const L = H.lobby;
   hudVar("pb_lobby_mode", L.mode);
   for (let i = 0; i < 4; i++) {
     const s = game.seats[i], id = "pb_lobby_s" + (i + 1);
     hudVar(id, L.lines[i]);
-    hudClass(id, "Taken", !!s.kind);
-    hudClass(id, "Ready", !!s.kind && s.ready);
+    hudClass(id, "stTaken", !!s.kind);
+    hudClass(id, "stReady", !!s.kind && s.ready);
   }
   hudVar("pb_lobby_count", L.count);
   hudVar("pb_lobby_hint", L.hint);
-  hudVar("pb_footer", H.footer);
+  hudVar("pb_keys", H.footer);
   for (const [slot, p] of players) {
     if (p.watch) {
-      hudVarP(slot, "pb_me", "WATCHING - press E to stop");
-      hudVarP(slot, "pb_moves", ""); hudVarP(slot, "pb_motions", ""); hudVarP(slot, "pb_status", "");
+      hudVarP(slot, "pb_pill_text", "WATCHING  -  press E to stop");
+      hudClassP(slot, "pb_game", "stStatus", true);
+      hudClassP(slot, "pb_game", "stPick", false);
       continue;
     }
     const info = H.seat[p.seat];
+    const fighting = H.inMatch && game.active.includes(p.seat);
     hudVarP(slot, "pb_me", info.me);
     hudVarP(slot, "pb_moves", info.moves);
     hudVarP(slot, "pb_motions", info.motions);
     hudVarP(slot, "pb_status", info.status);
-    hudClassP(slot, "pb_game", "Picking", !!info.status);
-    for (let i = 0; i < 4; i++) hudClassP(slot, "pb_c" + (i + 1), "Me", cs[i] === p.seat);
-    for (let i = 0; i < 4; i++) hudClassP(slot, "pb_lobby_s" + (i + 1), "Me", i === p.seat);
+    hudVarP(slot, "pb_pill_text", fighting ? info.status : "");
+    // your fighter's card while picking or waiting; a one-line status while you fight
+    hudClassP(slot, "pb_game", "stPick", !fighting && !!info.me);
+    hudClassP(slot, "pb_game", "stStatus", fighting && !!info.status);
+    for (let i = 0; i < 4; i++) hudClassP(slot, "pb_c" + (i + 1), "stMe", cs[i] === p.seat);
+    for (let i = 0; i < 4; i++) hudClassP(slot, "pb_lobby_s" + (i + 1), "stMe", i === p.seat);
   }
 }
 
@@ -784,7 +803,7 @@ function updateJoinHints() {
       }
     }
     hudVarP(slot, "pb_joinhint_text", text);
-    hudClassP(slot, "pb_joinhint", "Show", !!text);
+    hudClassP(slot, "pb_joinhint", "stShow", !!text);
   }
 }
 

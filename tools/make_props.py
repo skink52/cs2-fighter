@@ -227,6 +227,105 @@ def neon_text_image(lines, w, h, color, vertical=False, frame=True, sub=None, su
     return color_img, mask
 
 
+def nobori_image(text, cloth, ink, band, w=256, h=1024, seed=0):
+    """A festival banner: cloth colour, a contrasting band down the pole side with tie loops,
+    big vertical lettering and a small crest at the foot."""
+    import random
+    rng = random.Random(seed)
+    img = Image.new("RGB", (w, h), cloth); d = ImageDraw.Draw(img)
+    # woven cloth: faint horizontal threads
+    for y in range(0, h, 3):
+        k = rng.uniform(-6, 6)
+        d.line([(0, y), (w, y)], fill=tuple(max(0, min(255, int(c + k))) for c in cloth))
+    bw = 30
+    d.rectangle([0, 0, bw, h], fill=band)
+    d.rectangle([0, 0, w, 22], fill=band)
+    for y in range(40, h - 20, 90):
+        d.rounded_rectangle([4, y, bw - 4, y + 34], radius=6, outline=cloth, width=4)
+    chars = list(text)
+    n = len(chars)
+    top, bottom = 70, h - 170
+    cell = min((bottom - top) / n, w - bw - 36)
+    font = ImageFont.truetype(FONT, int(cell * 0.92), index=FONT_JP)
+    cx = bw + (w - bw) / 2
+    for i, ch in enumerate(chars):
+        cy = top + (bottom - top - cell * n) / 2 + cell * (i + 0.5)
+        d.text((cx, cy), ch, font=font, fill=ink, anchor="mm")
+    # crest: a ring with three commas (a simple tomoe-like mark)
+    cy = h - 95; r = 46
+    d.ellipse([cx - r, cy - r, cx + r, cy + r], outline=ink, width=8)
+    for k in range(3):
+        a = math.radians(90 + k * 120)
+        px, py = cx + math.cos(a) * r * 0.42, cy - math.sin(a) * r * 0.42
+        d.ellipse([px - 12, py - 12, px + 12, py + 12], fill=ink)
+    d.rectangle([0, h - 18, w, h], fill=band)
+    return img
+
+
+def vending_image(casing, seed=0, w=512, h=1024):
+    """Front of a drinks vending machine: a lit window of cans on three shelves with price
+    labels and buttons, a coin panel, the dispenser flap. Returns (colour, illum mask)."""
+    import random
+    rng = random.Random(seed)
+    img = Image.new("RGB", (w, h), casing); d = ImageDraw.Draw(img)
+    msk = Image.new("L", (w, h), 0); dm = ImageDraw.Draw(msk)
+    dark = tuple(int(c * 0.35) for c in casing)
+    ink = casing if sum(casing) < 500 else (30, 60, 170)
+    # header band
+    d.rounded_rectangle([26, 34, w - 26, 96], radius=10, fill=(250, 250, 255))
+    dm.rounded_rectangle([26, 34, w - 26, 96], radius=10, fill=230)
+    hf = ImageFont.truetype(FONT, 40, index=FONT_JP)
+    d.text((w / 2, 65), "つめた〜い  ドリンク", font=hf, fill=ink, anchor="mm")
+    # display window
+    x0, x1, y0, y1 = 26, w - 26, 112, 650
+    d.rectangle([x0, y0, x1, y1], fill=(236, 240, 246))
+    dm.rectangle([x0, y0, x1, y1], fill=215)
+    wraps = [(220, 40, 40), (40, 110, 220), (250, 200, 40), (40, 170, 90), (240, 120, 30), (150, 60, 200), (250, 250, 250), (30, 30, 34), (230, 70, 140)]
+    cols, rows = 6, 3
+    cw = (x1 - x0) / cols
+    rh = (y1 - y0) / rows
+    lf = ImageFont.truetype(FONT, 18, index=FONT_JP)
+    for r in range(rows):
+        sy = y0 + r * rh
+        d.line([(x0, sy + rh - 46), (x1, sy + rh - 46)], fill=(170, 176, 186), width=3)   # shelf
+        for c in range(cols):
+            cx = x0 + cw * (c + 0.5)
+            wc = rng.choice(wraps)
+            tall = rng.random() < 0.4
+            bh = 112 if tall else 92
+            bwid = 44 if tall else 52
+            top = sy + rh - 50 - bh
+            if tall:   # a bottle: neck and cap
+                d.rounded_rectangle([cx - 9, top - 26, cx + 9, top + 6], radius=5, fill=(210, 230, 240))
+                d.rectangle([cx - 10, top - 34, cx + 10, top - 24], fill=rng.choice(wraps))
+            d.rounded_rectangle([cx - bwid / 2, top, cx + bwid / 2, top + bh], radius=10, fill=wc)
+            stripe = (255, 255, 255) if sum(wc) < 600 else (220, 30, 40)
+            d.rectangle([cx - bwid / 2, top + bh * 0.38, cx + bwid / 2, top + bh * 0.56], fill=stripe)
+            d.ellipse([cx - 9, top + bh * 0.62, cx + 9, top + bh * 0.62 + 18], fill=stripe)
+            # price label (blue = cold, red = hot) and a lit button
+            lab = (40, 90, 210) if (r < 2 or c < 4) else (220, 40, 40)
+            ly = sy + rh - 40
+            d.rectangle([cx - cw / 2 + 6, ly, cx + cw / 2 - 6, ly + 18], fill=lab)
+            d.text((cx, ly + 9), "120", font=lf, fill=(255, 255, 255), anchor="mm")
+            d.rounded_rectangle([cx - 14, ly + 22, cx + 14, ly + 34], radius=5, fill=(120, 255, 140))
+            dm.rounded_rectangle([cx - 14, ly + 22, cx + 14, ly + 34], radius=5, fill=255)
+    # coin panel, change return, LED price display
+    d.rounded_rectangle([w - 170, 680, w - 30, 820], radius=10, fill=dark)
+    d.rectangle([w - 120, 696, w - 112, 740], fill=(10, 10, 12))
+    d.rectangle([w - 156, 760, w - 46, 772], fill=(10, 10, 12))
+    d.rectangle([w - 150, 786, w - 50, 810], fill=(40, 4, 4))
+    d.text((w - 100, 798), "000", font=lf, fill=(255, 60, 40), anchor="mm")
+    dm.rectangle([w - 150, 786, w - 50, 810], fill=255)
+    d.rounded_rectangle([40, 690, w - 200, 800], radius=8, fill=(240, 240, 236))
+    dm.rounded_rectangle([40, 690, w - 200, 800], radius=8, fill=120)
+    d.text(((40 + w - 200) / 2, 745), "ありがとう", font=hf, fill=ink, anchor="mm")
+    # dispenser flap and kick plate
+    d.rounded_rectangle([40, 850, w - 40, 960], radius=12, fill=(30, 30, 34))
+    d.line([(60, 880), (w - 60, 880)], fill=(70, 70, 76), width=4)
+    d.rectangle([0, 985, w, h], fill=(20, 20, 22))
+    return img, msk
+
+
 SIGNS = [
     # name, lines, size (w x h units), texture px, colour, vertical, sub
     ("kakutou", ["格闘"], (40, 120), (256, 768), (255, 50, 120), True, None),
@@ -237,8 +336,18 @@ SIGNS = [
     ("eigyou", ["営業中"], (90, 34), (768, 288), (90, 255, 140), False, None),
     ("marquee", ["PUPPET BRAWL"], (420, 96), (2048, 468), (255, 60, 170), False, "パペット・ブロール  ·  人形格闘"),
     ("sake", ["酒"], (30, 60), (256, 512), (255, 140, 60), True, None),
+    ("izakaya", ["居酒屋"], (90, 30), (768, 256), (255, 150, 60), False, None),
+    ("yakitori", ["焼鳥"], (80, 30), (768, 288), (255, 80, 70), False, None),
 ]
 NEON = {"pink": (255, 60, 170), "cyan": (40, 230, 255), "purple": (170, 80, 255), "yellow": (255, 210, 60), "red": (255, 50, 50), "green": (80, 255, 140)}
+NOBORI = [
+    # name, text, cloth, ink, band
+    ("ningyo", "人形喧嘩", (238, 234, 224), (206, 28, 40), (206, 28, 40)),
+    ("hissho", "必勝", (28, 38, 104), (244, 242, 236), (244, 242, 236)),
+    ("oiri", "大入", (196, 28, 34), (250, 246, 236), (232, 182, 60)),
+    ("yomatsuri", "夜祭", (24, 22, 26), (232, 182, 60), (232, 182, 60)),
+]
+VENDING = [("red", (186, 26, 32)), ("white", (226, 226, 220)), ("blue", (26, 72, 168))]
 
 
 def main():
@@ -307,6 +416,48 @@ def main():
     open(os.path.join(pdir, "pb_lantern.vmdl"), "w").write(vmdl("pb_lantern", "models/puppet_brawl/props/pb_lantern.smd",
          [("pb_lantern", "materials/puppet_brawl/props/pb_lantern.vmat"), ("pb_gold", "materials/puppet_brawl/props/pb_gold.vmat")]))
     made.append("pb_lantern")
+
+    # festival banners (nobori): pole with a weighted foot, a cloth hanging from a top rod on the
+    # +X side of the pole, front facing -Y; the cloth ripples a little
+    for name, text, cloth, ink, band in NOBORI:
+        mname = f"pb_nobori_{name}"
+        nobori_image(text, cloth, ink, band, seed=len(text) * 7 + len(name)).save(os.path.join(pmat, mname + "_color.png"))
+        open(os.path.join(pmat, mname + ".vmat"), "w").write(vmat_plain(f"materials/puppet_brawl/props/{mname}_color.png", f"festival banner '{text}'"))
+        m = Mesh()
+        lathe(m, "pb_dark", [(0.0, 0.0), (7.0, 0.0), (7.0, 4.0), (5.0, 6.0), (1.6, 7.0)], seg=16)
+        lathe(m, "pb_dark", [(1.4, 6.0), (1.4, 262.0), (0.0, 262.0)], seg=10)
+        lathe(m, "pb_gold", [(0.0, 261.0), (2.2, 263.0), (1.6, 267.0), (0.0, 270.0)], seg=10)
+        box(m, 0.0, 45.0, -0.8, 0.8, 245.0, 246.6, {"default": "pb_dark"})
+        x0, x1, z0, z1, strips = 1.8, 44.0, 64.0, 244.0, 8
+        wave = lambda u: 1.3 * math.sin(u * math.pi * 1.6 + 0.4) * u
+        for i in range(strips):
+            ua, ub = i / strips, (i + 1) / strips
+            xa, xb = x0 + (x1 - x0) * ua, x0 + (x1 - x0) * ub
+            ya, yb = wave(ua), wave(ub)
+            nf = norm((yb - ya, -(xb - xa), 0))       # front face looks down -Y
+            m.quad(mname, [(xa, ya, z0), (xb, yb, z0), (xb, yb, z1), (xa, ya, z1)], nf, [(ua, 1), (ub, 1), (ub, 0), (ua, 0)])
+            m.quad(mname, [(xb, yb + 0.2, z0), (xa, ya + 0.2, z0), (xa, ya + 0.2, z1), (xb, yb + 0.2, z1)], (-nf[0], -nf[1], 0), [(1 - ub, 1), (1 - ua, 1), (1 - ua, 0), (1 - ub, 0)])
+        open(os.path.join(pdir, mname + ".smd"), "w").write(m.smd())
+        open(os.path.join(pdir, mname + ".vmdl"), "w").write(vmdl(mname, f"models/puppet_brawl/props/{mname}.smd",
+             [(mname, f"materials/puppet_brawl/props/{mname}.vmat"), ("pb_dark", "materials/puppet_brawl/props/pb_dark.vmat"), ("pb_gold", "materials/puppet_brawl/props/pb_gold.vmat")]))
+        made.append(mname)
+
+    # drinks vending machines: 39 x 28 x 72, front (lit window of cans) facing -Y, back at y = +14
+    for k, (name, casing) in enumerate(VENDING):
+        mname = f"pb_vending_{name}"
+        img, msk = vending_image(casing, seed=11 + k * 5)
+        img.save(os.path.join(pmat, mname + "_color.png")); msk.save(os.path.join(pmat, mname + "_illum.png"))
+        open(os.path.join(pmat, mname + ".vmat"), "w").write(vmat_emissive(f"materials/puppet_brawl/props/{mname}_color.png", f"materials/puppet_brawl/props/{mname}_illum.png", 2.2, (0.95, 0.98, 1.0), note=f"{name} vending machine front"))
+        solid(os.path.join(pmat, mname + "_case_color.png"), (16, 16), casing)
+        open(os.path.join(pmat, mname + "_case.vmat"), "w").write(vmat_plain(f"materials/puppet_brawl/props/{mname}_case_color.png", f"{name} vending machine casing"))
+        m = Mesh()
+        box(m, -19.5, 19.5, -14.0, 14.0, 0.0, 72.0, {"ny": mname, "default": mname + "_case"})
+        box(m, -20.2, 20.2, -14.8, 14.0, 72.0, 74.0, {"default": mname + "_case"})
+        box(m, -19.0, 19.0, -14.4, -14.0, 0.0, 2.5, {"default": "pb_dark"})
+        open(os.path.join(pdir, mname + ".smd"), "w").write(m.smd())
+        open(os.path.join(pdir, mname + ".vmdl"), "w").write(vmdl(mname, f"models/puppet_brawl/props/{mname}.smd",
+             [(mname, f"materials/puppet_brawl/props/{mname}.vmat"), (mname + "_case", f"materials/puppet_brawl/props/{mname}_case.vmat"), ("pb_dark", "materials/puppet_brawl/props/pb_dark.vmat")]))
+        made.append(mname)
 
     # control pad ring (flat annulus 1 unit tall)
     for cname in ("pink", "cyan"):

@@ -60,13 +60,14 @@ class Game {
     for (let i = 0; i < SPARK_POOL; i++) this.sparks.push({ x: 0, y: 0, life: 0, max: 1, size: 8, color: { r: 255, g: 255, b: 255 } });
     this.sparkNext = 0;
     this.events = [];
-    this.cam = { cx: 0, cy: 50, half: 240, shake: 0, kick: 0, kickV: 0, punch: 0, focus: null };
+    this.cam = { cx: 0, cy: 50, half: 240, shake: 0, kick: 0, kickV: 0, punch: 0, lift: 0, focus: null };
     this.hud = this.makeHud();
     this.announceQueue = [];
     this.announceTimer = 0;
     this.announceGap = 0;
-    this.comboTimers = [0, 0, 0, 0];
-    this.comboKind = ["", "", "", ""];
+    // combo callouts: a tag (COUNTER, PERFECT BLOCK, a finisher's name) and a running hit count
+    this.comboTag = [0, 1, 2, 3].map(() => ({ text: "", kind: "", t: 0 }));
+    this.comboRun = [0, 1, 2, 3].map(() => ({ hits: 0, dmg: 0, t: 0 }));
     this.bestCombo = [0, 0, 0, 0];
     this.forceCpuMatch = false;
     this.point = [-1, -1];      // tag team: the seat each team has on stage
@@ -734,7 +735,7 @@ class Game {
         D.hp = Math.min(D.maxHp, D.hp + (this.cfg.perfectHeal || 0));
         D.perfects++;
         D.guardF = -999;   // one perfect per press
-        this.comboTimers[D.seat] = Math.round(SIM_HZ * 1.1); this.comboText[D.seat] = "PERFECT BLOCK"; this.comboKind[D.seat] = "perfect";
+        this.tagCombo(D.seat, "PERFECT BLOCK", "perfect", 1.2);
         this.spark(tip.x, tip.y, { r: 255, g: 255, b: 255 }, 16);
         this.sound("select");
         this.events.push({ t: "perfect", seat: D.seat });
@@ -798,20 +799,18 @@ class Game {
     // layered impacts: the biggest hits add a crunch on top of the heavy thud
     if (D.ko || imp.tier >= 3) { this.sound("heavy"); this.sound("crush"); }
     else this.sound(imp.tier === 2 ? "heavy" : imp.tier === 1 ? "hit" : "hitl");
-    if (counter) { this.sound("counter"); this.comboTimers[A.seat] = Math.round(SIM_HZ * 1.0); this.comboText[A.seat] = "COUNTER"; this.comboKind[A.seat] = "counter"; }
+    if (counter) { this.sound("counter"); this.tagCombo(A.seat, "COUNTER", "counter", 1.1); }
     this.kick(away, D.ko ? 12 : imp.kick + (counter ? 2 : 0));
     if (D.ko) this.shake(3); else if (big || h.shake) this.shake(h.shake ? 2 : imp.tier >= 3 ? 1.3 : 0.8);
     if (D.ko || imp.tier >= 3) this.cam.punch = Math.max(this.cam.punch, D.ko ? 0.16 : 0.06);
     // combo tracker: hits in a row before the defender recovers, damage, and the match best
+    const finisher = !fromProjectile && A.move && A.move.combo;
+    if (finisher && !counter) this.tagCombo(A.seat, A.move.name, "finish", 1.2);
     if (D.combo >= 2) {
-      const finisher = !fromProjectile && A.move && A.move.combo ? "  " + A.move.name.toUpperCase() : "";
-      this.comboTimers[A.seat] = Math.round(SIM_HZ * 1.6);
-      this.comboText[A.seat] = D.combo + " HIT COMBO  " + D.comboDmg + " DMG" + finisher;
-      this.comboKind[A.seat] = "combo";
+      const R = this.comboRun[A.seat];
+      R.hits = D.combo; R.dmg = D.comboDmg; R.t = Math.round(SIM_HZ * 1.6);
       if (D.combo > this.bestCombo[A.seat]) this.bestCombo[A.seat] = D.combo;
       if (D.combo === 5 || D.combo === 8) this.announce(D.combo + " HIT COMBO!", "small", 0.9);
-    } else if (!fromProjectile && A.move && A.move.combo) {
-      this.comboTimers[A.seat] = Math.round(SIM_HZ * 1.1); this.comboText[A.seat] = A.move.name.toUpperCase(); this.comboKind[A.seat] = "combo";
     }
   }
 
@@ -1046,6 +1045,12 @@ class Game {
       for (let i = 0; i < 4; i++) if (this.fighters[i].onStage) xs.push(this.fighters[i].x);
     }
     let cx = 0, half = Math.min(this.halfW, 240);
+    // jumps and launches lift the camera (and pull it back a little) so heads stay in the picture
+    let top = 0;
+    for (const i of this.active) { const f = this.fighters[i]; if (f.onStage && !f.background) top = Math.max(top, f.y); }
+    const lift = clamp((top - 16) * 0.6, 0, 84);
+    c.lift = lerp(c.lift, lift, lift > c.lift ? 0.16 : 0.07);
+    if (c.lift < 0.05) c.lift = 0;
     if (xs.length) {
       const lo = Math.min(...xs), hi = Math.max(...xs);
       cx = (lo + hi) / 2;
@@ -1073,9 +1078,14 @@ class Game {
   }
 
   // ------------------------------------------------------------------ HUD model
+  tagCombo(seat, text, kind, seconds) {
+    const T = this.comboTag[seat];
+    T.text = text.toUpperCase(); T.kind = kind; T.t = Math.round(SIM_HZ * seconds);
+  }
+
   makeHud() {
-    this.comboText = ["", "", "", ""];
-    const card = () => ({ show: false, name: "", fighter: "", color: 0, hp: 100, wins: 0, need: 2, combo: "", comboKind: "", best: "", ko: false, bench: false, side: "L", you: -1 });
+    const card = () => ({ show: false, name: "", fighter: "", color: 0, hp: 100, wins: 0, need: 2, combo: "", comboTag: "", comboKind: "", comboHits: "", comboSub: "",
+      best: "", ko: false, bench: false, side: "L", you: -1 });
     return {
       inLobby: true, inMatch: false,
       mode: "", timer: "", round: "",
@@ -1130,8 +1140,10 @@ class Game {
       card.bench = this.tagMode && f.background;
       card.side = c % 2 === 0 ? "L" : "R";
       card.seat = seat;
-      if (this.comboTimers[seat] > 0) { this.comboTimers[seat]--; card.combo = this.comboText[seat]; card.comboKind = this.comboKind[seat]; }
-      else { card.combo = ""; card.comboKind = ""; }
+      const T = this.comboTag[seat], R = this.comboRun[seat];
+      if (T.t > 0) { T.t--; card.comboTag = T.text; card.comboKind = T.kind; } else { card.comboTag = ""; card.comboKind = ""; }
+      if (R.t > 0) { R.t--; card.comboHits = String(R.hits); card.comboSub = R.dmg + " DMG"; } else { card.comboHits = ""; card.comboSub = ""; }
+      card.combo = [card.comboHits ? card.comboHits + " HITS  " + card.comboSub : "", card.comboTag].filter(Boolean).join("  ");
       const best = this.bestCombo[seat], pf = f.perfects;
       card.best = (best >= 2 ? "BEST " + best + " HITS" : "") + (pf ? (best >= 2 ? "   " : "") + pf + " PERFECT" + (pf > 1 ? "S" : "") : "");
     }

@@ -80,8 +80,8 @@ const CONFIG = {
   CAMERA_MODE: "auto",
   CAMERA_FOV: 90,                    // CS2 horizontal FOV at 4:3
   CAMERA_ASPECT: 16 / 9,
-  CAMERA_HEIGHT: 78,                 // fighter units above the floor
-  CAMERA_LOOK_HEIGHT: 56,            // fighter units: the height the camera aims at
+  CAMERA_HEIGHT: 72,                 // fighter units above the floor (jumps lift it, see cam.lift)
+  CAMERA_LOOK_HEIGHT: 66,            // fighter units: the height the camera aims at
   CAMERA_MIN_DIST: 170,              // fighter units
   CAMERA_UNPARENT: true,             // the custom camera starts parented to the pawn
 

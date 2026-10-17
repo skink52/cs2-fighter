@@ -50,7 +50,7 @@ tap(bob, CSInputs.USE);
 check(alice._moveType === CSMoveType.NONE && bob._moveType === CSMoveType.NONE, "both players frozen at their pads");
 check(alice._cam && alice._cam._mode === CustomCameraMode.CONTROLLED, "fight camera taken (CONTROLLED)");
 check(alice._cam && alice._cam._parent === undefined, "camera unparented for control");
-check(hud.pclasses.get("0:pb_game.Hidden") === false, "HUD shown to Alice");
+check(hud.pclasses.get("0:pb_game.stHidden") === false, "HUD shown to Alice");
 check(alice._weapons.length === 0, "Alice's weapons put away while she plays (WEAPONS strip)");
 
 // ---- lobby: pick a different fighter, ready up
@@ -58,7 +58,7 @@ tap(alice, CSInputs.RIGHT);
 tap(alice, CSInputs.ATTACK);
 tap(bob, CSInputs.ATTACK);
 sim.tick(64 * 4);
-check(hud.classes.get("pb_game.InMatch") === true, "match started after countdown");
+check(hud.classes.get("pb_game.stMatch") === true, "match started after countdown");
 check(hud.vars.get("pb_c1_name.t") === "Alice" && hud.vars.get("pb_c2_name.t") === "Bob", "cards show both players: " + hud.vars.get("pb_c1_name.t") + " / " + hud.vars.get("pb_c2_name.t"));
 const rigs = () => M.sim.ents.filter((e) => e._valid && String(e._model || "").includes("pb_rig") && e._name.startsWith("pb_rig_"));
 check(rigs().length >= 2, "fighter bodies spawned (rig + agent): " + rigs().length);
@@ -103,7 +103,7 @@ check(bob._moveType === CSMoveType.WALK, "Bob unfrozen after holding E");
 check(bob._weapons.length >= 2, "Bob got his weapons back: " + bob._weapons.map((w) => w._cls).join(","));
 check(bob._cam._mode === CustomCameraMode.DISABLED, "Bob's camera handed back");
 check(Math.abs(bob._pos.y - -1000) < 1, "Bob dropped at pb_exit");
-check(hud.pclasses.get("1:pb_game.Hidden") === undefined, "Bob's HUD override reset");
+check(hud.pclasses.get("1:pb_game.stHidden") === undefined, "Bob's HUD override reset");
 sim.tick(64 * 5);
 check(stats.say.length >= 1, "match result in chat: " + stats.say.join(" | "));
 
@@ -119,7 +119,7 @@ sim.tick(4);
 }
 tap(alice, CSInputs.ATTACK);
 sim.tick(64 * 5);
-check(hud.classes.get("pb_game.Mode_ffa") === true && hud.classes.get("pb_game.InMatch") === true, "FFA match with CPUs started");
+check(hud.classes.get("pb_game.stMode_ffa") === true && hud.classes.get("pb_game.stMatch") === true, "FFA match with CPUs started");
 for (let t = 0; t < 64 * 30; t++) { if (t % 8 === 0) { alice._held = 0; alice.press(keys[Math.floor(rnd() * keys.length)]); } sim.tick(1); }
 
 // ---- spectator spot
@@ -159,7 +159,7 @@ check(stats.msgs.filter((m) => m.includes("ready:")).length >= 3, "re-initialise
 sim.cheats.pb_status("");
 sim.cheats.pb_cpu_match("");
 sim.tick(64 * 8);
-check(hud.classes.get("pb_game.InMatch") === true, "pb_cpu_match starts a CPU-only match");
+check(hud.classes.get("pb_game.stMatch") === true, "pb_cpu_match starts a CPU-only match");
 
 const scriptErrors = stats.msgs.filter((m) => m.includes("script error") || m.includes("failed"));
 check(scriptErrors.length === 0, "no script errors" + (scriptErrors.length ? ": " + scriptErrors.slice(0, 3).join(" || ") : ""));
@@ -171,7 +171,7 @@ check(stats.errors.length === 0, "no invalid values" + (stats.errors.length ? ":
   for (let i = 0; i < 4; i++) sim.scriptInputs.AddCPU({});
   sim.cheats.pb_cpu_match();
   sim.tick(64 * 6);
-  check(hud.classes.get("pb_game.Mode_teams") === true && hud.classes.get("pb_game.InMatch") === true, "tag team CPU match running");
+  check(hud.classes.get("pb_game.stMode_teams") === true && hud.classes.get("pb_game.stMatch") === true, "tag team CPU match running");
   for (let t = 0; t < 64 * 40; t++) { sim.tick(1); }
   sim.cheats.pb_stop(); sim.tick(8);
   check(stats.say.slice(-3).some((x) => /CPUs? removed/.test(x)), "STOP CPUs reports in chat: " + stats.say.slice(-2).join(" | "));
@@ -188,6 +188,29 @@ check(stats.errors.length === 0, "no invalid values" + (stats.errors.length ? ":
   check((stats.text || []).some((t) => t.startsWith("pb_stage_sub=") && t.includes(" - ")), "stage sub-line calls specials: " + (stats.text || []).filter((t) => t.startsWith("pb_stage_sub=") && t.includes(" - ")).slice(0, 3).join(" | "));
   const knot = sim.ents.find((e) => e._model && e._model.includes("pb_proj_knot"));
   check(!knot || Number.isFinite(knot._ang.pitch), "projectile spin angle set");
+}
+
+// ---- HUD: every panel the script touches exists, and every class it switches is an "st" class
+// (or a width) with no css rule of its own (a switched class that has its own rule scrambles Panorama)
+{
+  const dir = path.join(path.dirname(new URL(import.meta.url).pathname), "..", "dist", "addon", "panorama");
+  const xml = fs.readFileSync(path.join(dir, "layout", "custom_game", "puppet_brawl.xml"), "utf8");
+  const css = fs.readFileSync(path.join(dir, "styles", "custom_game", "puppet_brawl.css"), "utf8");
+  const ids = new Set([...xml.matchAll(/id="([^"]+)"/g)].map((m) => m[1]));
+  const alone = new Set();
+  for (const m of css.matchAll(/(^|\})\s*([^{}@]+)\{/g)) for (const sel of m[2].split(",")) { const t = sel.trim(); if (/^\.[\w-]+$/.test(t)) alone.add(t.slice(1)); }
+  const seen = new Set();
+  for (const key of [...hud.classes.keys(), ...[...hud.pclasses.keys()].map((k) => k.replace(/^\d+:/, ""))]) seen.add(key);
+  const bad = [];
+  for (const key of seen) {
+    const [id, cls] = [key.slice(0, key.lastIndexOf(".")), key.slice(key.lastIndexOf(".") + 1)];
+    if (!ids.has(id)) bad.push("no panel " + id);
+    if (/^w\d+$/.test(cls)) continue;
+    if (!cls.startsWith("st")) bad.push(id + "." + cls + " is not an st class");
+    if (alone.has(cls)) bad.push(id + "." + cls + " has a rule of its own");
+  }
+  for (const key of [...hud.vars.keys(), ...[...hud.pvars.keys()].map((k) => k.replace(/^\d+:/, ""))]) { const id = key.split(".")[0]; if (!ids.has(id)) bad.push("no label " + id); }
+  check(bad.length === 0, "HUD ids and classes match the layout (" + seen.size + " switched)" + (bad.length ? ": " + [...new Set(bad)].slice(0, 6).join(", ") : ""));
 }
 
 console.log(`\nspawned ${stats.spawned}, removed ${stats.removed}, teleports ${stats.teleports}, moves ${stats.moves}, scale ${stats.scale}, color ${stats.color}, hud vars ${stats.hudVar}/${stats.hudVarP}, classes ${stats.hudClass}/${stats.hudClassP}`);
