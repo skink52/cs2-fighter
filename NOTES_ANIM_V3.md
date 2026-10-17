@@ -26,6 +26,15 @@ hitboxes following. Send review images. Free-licence models allowed if agents do
   punches; boxing 13_17/14_01/80_10. Helper scripts in scratchpad/mc (events.mjs, curve.mjs,
   mcview.mjs, mtest.mjs, stance.mjs, fist.mjs).
 
+## Done since (23:20)
+- Kicks from mocap for everyone (mocap_specs.mjs SHARED kickMid/longKick/roundhouse; PER timberFall,
+  boilerKick, arabesque (05_05 mirrored, hit tip changed to fT in core), cartwheel (88_07, aimBy travel,
+  strip)). Sweep re-keyed as postures (posed_moves.mjs). Core: hurt capsule between planted ankles
+  (wide stances left a gap the sweep slipped through). Cartwheel dmg 6/6 -> 5/5, r 6.
+- Review 1 sent to Zach (stances + Timber normals). v3a delivered 22:32: scripts/puppet_brawl.js and
+  models/puppet_brawl/rig/pb_rig_anims_v3a.zip (Zach extracts into rig/, recompiles pb_rig.vmdl).
+- Balance (300 s x2, noisy): L1 44/56/51/49, L2 33/32/62/75 before the cartwheel nerf.
+
 ## Next
 1. Wire mocap moves into moves.mjs buildMove (per fighter spec table) for kickMid, longKick,
    roundhouse (+ air kicks from 90_05..07 / 75_16); hand-key a real sweep (deep crouch, rear leg

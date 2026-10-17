@@ -646,6 +646,8 @@ class Fighter {
     cap("S", "bE", lr(d.uarm)); cap("bE", "bW", lr(d.farm)); cap("bF", "bF", d.fistR * v);
     cap("P", "fK", lr(d.thigh)); cap("fK", "fA", lr(d.shin)); cap("fA", "fT", lr(d.foot));
     cap("P", "bK", lr(d.thigh)); cap("bK", "bA", lr(d.shin)); cap("bA", "bT", lr(d.foot));
+    // planted in a wide stance, the space between the feet still counts as legs for low hits
+    if (wy("fA") - this.y < 14 && wy("bA") - this.y < 14) cap("fA", "bA", lr(d.shin));
     // tips
     const T = this.tips;
     const tip = (name, x, y) => { const tt = T[name] || (T[name] = { x: 0, y: 0 }); tt.x = x; tt.y = y; };

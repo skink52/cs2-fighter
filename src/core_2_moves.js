@@ -129,8 +129,8 @@ const MOVES = {
   cartwheel: {
     name: "Cartwheel", total: 34, base: "stance", special: true, motion: ["F", "F"], btn: "K",
     hits: [
-      { from: 9, to: 13, tip: "fF", r: 7, dmg: 6, level: "mid", hitstun: 18, blockstun: 10, push: 50, hitstop: 5, snd: "hit", chip: 1 },
-      { from: 17, to: 21, tip: "fT", r: 7, dmg: 6, level: "mid", hitstun: 20, blockstun: 12, push: 120, hitstop: 7, snd: "heavy", launch: { vx: 180, vy: 400 }, kd: true, chip: 1 },
+      { from: 9, to: 13, tip: "fF", r: 6, dmg: 5, level: "mid", hitstun: 18, blockstun: 10, push: 50, hitstop: 5, snd: "hit", chip: 1 },
+      { from: 17, to: 21, tip: "fT", r: 6, dmg: 5, level: "mid", hitstun: 20, blockstun: 12, push: 120, hitstop: 7, snd: "heavy", launch: { vx: 180, vy: 400 }, kd: true, chip: 1 },
     ],
     vel: [[4, 26, 360]],
   },
@@ -170,7 +170,7 @@ const MOVES = {
   },
   arabesque: {
     name: "Arabesque", total: 34, base: "stance", combo: true,
-    hits: [{ from: 9, to: 12, tip: "bT", r: 7.5, dmg: 10, level: "high", hitstun: 26, blockstun: 13, push: 120, hitstop: 8, snd: "heavy", launch: { vx: 120, vy: 620 }, kd: true }],
+    hits: [{ from: 9, to: 12, tip: "fT", r: 7.5, dmg: 10, level: "high", hitstun: 26, blockstun: 13, push: 120, hitstop: 8, snd: "heavy", launch: { vx: 120, vy: 620 }, kd: true }],
     vel: [[2, 9, 100]],
   },
   // ---- MOTLEY

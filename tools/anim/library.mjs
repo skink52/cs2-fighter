@@ -11,6 +11,8 @@ import { SPECIAL_ANIMS } from "./specials.mjs";
 const MOVE_ANIMS = { ...NORMAL_ANIMS, ...SPECIAL_ANIMS };
 import { STATE_ANIMS } from "./states.mjs";
 import { EXTRA_ANIMS } from "./extras.mjs";
+import { mocapSpec, buildMocapMove } from "./mocap_specs.mjs";
+import { POSED_MOVES } from "./posed_moves.mjs";
 
 export const FIGHTERS = ["timber", "brass", "pirouette", "motley"];
 export const STATE_KEYS = ["idle", "intro", "walkf", "walkb", "crouch", "block", "cblock", "blockhit", "cblockhit", "squat", "air", "airrise", "land", "dashf", "dashb",
@@ -39,7 +41,10 @@ export function buildClip(id, key, core) {
   const ch = core.CHARACTERS.find((c) => c.id === id);
   const name = `${id}_${key}`;
   let c = null, fresh = false;
-  if (NEW[key]) { c = NEW[key](id, core); fresh = true; }
+  const mspec = ch.moves[key] ? mocapSpec(id, key) : null;
+  if (mspec) { c = buildMocapMove(id, key, core, mspec); fresh = true; }
+  else if (ch.moves[key] && POSED_MOVES[key]) { c = POSED_MOVES[key](id, core); fresh = true; }
+  else if (NEW[key]) { c = NEW[key](id, core); fresh = true; }
   else if (STATE_ANIMS[key]) { c = STATE_ANIMS[key](id, core); fresh = true; }
   else if (EXTRA_ANIMS[key] && (c = EXTRA_ANIMS[key](id, core))) fresh = true;
   else if (MOVE_ANIMS[key] && ch.moves[key]) { c = buildMove(id, key, core, MOVE_ANIMS[key]); fresh = true; }

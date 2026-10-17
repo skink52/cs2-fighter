@@ -85,3 +85,41 @@ export function posture(P) {
   if (P.shape) for (const s of ["L", "R"]) if (P.shape[s]) shapeHand(W, s, P.shape[s]);
   return W;
 }
+
+// ------------------------------------------------------------------ keyed postures
+// keys: [[frame, spec], ...] with complete specs (every key gives the same fields); numbers are
+// interpolated with monotone cubic curves, so a foot or hand passing through several keys follows
+// a smooth arc. Extra per-key numbers: fistL / fistR (0 relaxed .. 1 fist).
+import { monotoneSlopes, hermiteMap } from "./clip.mjs";
+function flat(o, pre = "", out = {}) {
+  for (const [k, v] of Object.entries(o)) {
+    const key = pre ? pre + "." + k : k;
+    if (Array.isArray(v)) v.forEach((x, i) => { out[key + "." + i] = x; });
+    else if (v && typeof v === "object") flat(v, key, out);
+    else if (typeof v === "number") out[key] = v;
+  }
+  return out;
+}
+function unflat(fl) {
+  const out = {};
+  for (const [key, val] of Object.entries(fl)) {
+    const ps = key.split(".");
+    let o = out;
+    for (let i = 0; i < ps.length - 1; i++) { if (!(ps[i] in o)) o[ps[i]] = /^\d+$/.test(ps[i + 1]) ? [] : {}; o = o[ps[i]]; }
+    o[ps[ps.length - 1]] = val;
+  }
+  return out;
+}
+export function sampleKeys(keys, n) {
+  const fl = keys.map(([f, s]) => [f, flat(s)]);
+  const chans = new Set(); fl.forEach(([, x]) => Object.keys(x).forEach((c) => chans.add(c)));
+  const frames = Array.from({ length: n }, () => ({}));
+  for (const c of chans) {
+    const pts = fl.filter(([, x]) => c in x).map(([f, x]) => [f, x[c]]);
+    const xs = pts.map((p) => p[0]), ys = pts.map((p) => p[1]);
+    const m = xs.length > 1 ? monotoneSlopes(xs, ys) : [0];
+    for (let f = 0; f < n; f++) frames[f][c] = xs.length === 1 ? ys[0] : hermiteMap(xs, ys, m, Math.max(xs[0], Math.min(xs[xs.length - 1], f)));
+  }
+  return frames.map(unflat);
+}
+export const cloneSpec = (s) => JSON.parse(JSON.stringify(s));

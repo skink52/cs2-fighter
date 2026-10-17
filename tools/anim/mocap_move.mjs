@@ -54,9 +54,10 @@ export function cutTake(spec, n) {
 
 // Aim and place a cut: the strike (limb root -> tip, level) points along +X at the aim frame and
 // the support ankle sits at `supportAt` (x, y).
-export function aimCut(poses, { tip, aimIndex, support, supportAt, yaw = 0 }) {
+export function aimCut(poses, { tip, aimIndex, support, supportAt, yaw = 0, by = "tip" }) {
   const A = poses[aimIndex];
-  const from = A[IDX[LIMB_ROOT[tip] || "pelvis"]].p, to = tipOf(A, tip);
+  let from = A[IDX[LIMB_ROOT[tip] || "pelvis"]].p, to = tipOf(A, tip);
+  if (by === "travel") { from = poses[0][IDX.pelvis].p; to = poses[poses.length - 1][IDX.pelvis].p; }
   const d = [to[0] - from[0], to[1] - from[1]];
   const a = -Math.atan2(d[1], d[0]) + yaw * Math.PI / 180;
   const rot = q.axisAngle([0, 0, 1], a);
@@ -150,7 +151,9 @@ export function mocapPoses(spec, { start, end, k = 1, n }) {
   const aimIndex = Math.min(n - 1, Math.round(ak[0] * k));
   const sup = spec.support;
   if (spec.place === "pelvis") {
-    P = aimCut(P, { tip: spec.tip, aimIndex, support: sup, supportAt: [0, 0], yaw: spec.yaw || 0 });
+    P = aimCut(P, { tip: spec.tip, aimIndex, support: sup, supportAt: [0, 0], yaw: spec.yaw || 0, by: spec.aimBy });
+    // travelling moves (the game carries the fighter): hold the pelvis over one spot
+    if (spec.strip) { const x0 = P[0][IDX.pelvis].p[0]; P = P.map((W) => { const dx = W[IDX.pelvis].p[0] - x0; return W.map((t) => ({ q: t.q, p: [t.p[0] - dx * spec.strip, t.p[1], t.p[2]] })); }); }
     const pz = P[aimIndex][IDX.pelvis].p, sp = start[IDX.pelvis].p;
     const d = [sp[0] + (spec.pelvisDx || 0) - pz[0], sp[1] + (spec.pelvisDy || 0) - pz[1], 0];
     P = P.map((W) => W.map((t) => ({ q: t.q, p: [t.p[0] + d[0], t.p[1] + d[1], t.p[2]] })));
