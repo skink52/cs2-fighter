@@ -18,8 +18,8 @@ Start any new chat about this map here. Fuller history: `claude/puppet_brawl_cs2
 
 ## Zach's next steps (README "Building this version")
 1. Close CS2 and Hammer.
-2. Extract `pb_rig_anims_v3d.zip` into `models/puppet_brawl/rig/`, replacing the files in `anims/`.
-3. Delete the old zips if wanted: v3a, v3b and v3c.
+2. The 392 v2.1.1 animation files are already in `models/puppet_brawl/rig/anims/`. Claude copied them in on 18 Oct at 14:20 and verified them, so no zip needs extracting.
+3. Delete the old zips if wanted: v3a, v3b, v3c and v3d.
 4. Rebuild the rig: run `run_build.bat` with `mg_cs2_fighter` in `C:\source1\cs2port\build_queue.txt`. Or compile `pb_rig.vmdl` directly with `game\bin\win64\resourcecompiler.exe -i ...\rig\pb_rig.vmdl`.
 5. Compile the script and the HUD directly with `resourcecompiler.exe -f -i` on:
    - `scripts\puppet_brawl.js`
