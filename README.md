@@ -38,3 +38,7 @@ The addon folder on the PC is `content/csgo_addons/mg_cs2_fighter`. Only changed
 ## Licence
 
 Free for non-commercial use: copy, change, share and run it, including on game servers (donation/VIP servers are fine). Not to be sold, paywalled or built into a paid product or service. Code: [PolyForm Noncommercial 1.0.0](LICENSE). Art, models, sounds and maps: [CC BY-NC 4.0](LICENSE-CC-BY-NC-4.0.txt). `tools/vendor/datamodel.py` stays MIT.
+
+## Shared files
+
+`test/tscheck/point_script.d.ts`, `tools/dmx9.py` are master copies from [cs2mapping](https://github.com/skink52/cs2mapping) (`create/libsync.json`). Change them there and run `python3 create/libsync.py push`, or if a fix lands here first, `libsync.py pull` it into cs2mapping. `libsync.py check` shows drift.
