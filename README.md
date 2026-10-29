@@ -34,3 +34,7 @@ node test/mechanics.mjs && node test/sim_cs2.mjs
 ```
 
 The addon folder on the PC is `content/csgo_addons/mg_cs2_fighter`. Only changed files are copied there.
+
+## Licence
+
+Free for non-commercial use: copy, change, share and run it, including on game servers (donation/VIP servers are fine). Not to be sold, paywalled or built into a paid product or service. Code: [PolyForm Noncommercial 1.0.0](LICENSE). Art, models, sounds and maps: [CC BY-NC 4.0](LICENSE-CC-BY-NC-4.0.txt). `tools/vendor/datamodel.py` stays MIT.
