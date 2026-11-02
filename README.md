@@ -1,5 +1,7 @@
 # Puppet Brawl for CS2 (mg_cs2_fighter)
 
+> **Moved.** This project now lives in the [cs2mapping](https://github.com/skink52/cs2mapping) repo at [`projects/cs2-fighter`](https://github.com/skink52/cs2mapping/tree/main/projects/cs2-fighter), with its full history. This repo is archived (read-only) and no longer updated.
+
 A 2.5D street fighter that runs entirely inside one Counter-Strike 2 map as a cs_script, with no server plugins.
 Fighters are CS2 agent models driven by an invisible animation rig, fighting on a neon night-market stage that
 everyone else in the map can watch. Duel (winner stays on) and 2v2 tag team, CPU opponents, combos, specials,
